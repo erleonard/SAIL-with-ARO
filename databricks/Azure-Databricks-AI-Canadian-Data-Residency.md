@@ -739,6 +739,3 @@ Contributions are welcome. See the repository README.md for contact and the cont
 # 6. Trademarks
 
 Databricks, Unity Catalog, Delta Lake, MLflow, and Mosaic AI are trademarks of Databricks, Inc. Microsoft, Azure, and Azure Databricks are trademarks of Microsoft Corporation. Third-party marks referenced in this document belong to their respective owners.
-
-  
-**
