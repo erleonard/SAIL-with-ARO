@@ -5,7 +5,7 @@ This Sovereign AI Landing Zone (SAIL) repository provides a secure foundation fo
 * Data **at rest** should be stored within Canadian Azure data centres
 * Data **in-transit** should be processed within Canadian Azure data centres
 
-The critical Azure services in supporting the deployment of sovereign AI models in Canada are [Microsoft Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/what-is-azure-ai-foundry?view=foundry&preserve-view=true) and [Azure Machine Learning](https://learn.microsoft.com/en-us/azure/machine-learning/overview-what-is-azure-machine-learning?view=azureml-api-2).
+The critical Azure services in supporting the deployment of sovereign AI models in Canada are [Microsoft Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/what-is-azure-ai-foundry?view=foundry&preserve-view=true), [Azure Machine Learning](https://learn.microsoft.com/en-us/azure/machine-learning/overview-what-is-azure-machine-learning?view=azureml-api-2), and [Azure Databricks](https://learn.microsoft.com/en-us/azure/databricks/).
 
 We will provide a comprehensive review of deployment approaches and templates for AI models satisfying the two soverignity requirements of data at rest and in-transit staying within Canada borders. Initial Azure Bicep scripts for deployment of Azure Machine Learning and Microsoft Foundry through Infrastructure as Code (IaC) can be found in the ```infra``` folder. More updates to the IaC scripts and deployment scripts to come!
 
