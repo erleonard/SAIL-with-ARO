@@ -88,7 +88,7 @@ az ml online-endpoint get-credentials -n <name>
 
 ## Azure Databricks AI deployment options
 
-Details on Azure Databricks soverign AI options within Canada regions can be found here: 
+Details on Azure Databricks soverign AI options within Canada regions can be found here: [Deploying Azure Databricks AI for Canadian Data Residency](databricks/Deploying Azure Databricks AI for Canadian Data Residency.md).
 
 ## Acknowledgements
 
