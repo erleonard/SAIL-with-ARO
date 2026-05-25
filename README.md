@@ -7,7 +7,9 @@ This Sovereign AI Landing Zone (SAIL) repository provides a secure foundation fo
 
 The critical Azure services in supporting the deployment of sovereign AI models in Canada are [Microsoft Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/what-is-azure-ai-foundry?view=foundry&preserve-view=true), [Azure Machine Learning](https://learn.microsoft.com/en-us/azure/machine-learning/overview-what-is-azure-machine-learning?view=azureml-api-2), and [Azure Databricks](https://learn.microsoft.com/en-us/azure/databricks/).
 
-We will provide a comprehensive review of deployment approaches and templates for AI models satisfying the two soverignity requirements of data at rest and in-transit staying within Canada borders. Initial Azure Bicep scripts for deployment of Azure Machine Learning, Microsoft Foundry, and Azure Databricks through Infrastructure as Code (IaC) can be found in the ```infra``` folder. SAIL does not go deep into the architecture and design on AI landing zones themselves, rather it is focused on sovereign AI models deployment and configurations. See this official repo [Azure AI Landing Zones](https://azure.github.io/AI-Landing-Zones/bicep/overview/) for its reference architecture and implementation details.
+We will provide a comprehensive review of deployment approaches and templates for AI models satisfying the two soverignity requirements of data at rest and in-transit staying within Canada borders. 
+
+Initial Azure Bicep scripts for deployment of Azure Machine Learning, Microsoft Foundry, and Azure Databricks through Infrastructure as Code (IaC) can be found in the ```infra``` folder. SAIL does not go deep into the architecture and design on AI landing zones themselves, rather it is focused on sovereign AI models deployment and configurations. See this official repo [Azure AI Landing Zones](https://azure.github.io/AI-Landing-Zones/bicep/overview/) for its reference architecture and implementation details.
 
 ## Microsoft Foundry AI model deployment options
 
