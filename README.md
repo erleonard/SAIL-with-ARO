@@ -7,7 +7,9 @@ This Sovereign AI Landing Zone (SAIL) repository provides a secure foundation fo
 
 The critical Azure services in supporting the deployment of sovereign AI models in Canada are [Microsoft Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/what-is-azure-ai-foundry?view=foundry&preserve-view=true), [Azure Machine Learning](https://learn.microsoft.com/en-us/azure/machine-learning/overview-what-is-azure-machine-learning?view=azureml-api-2), and [Azure Databricks](https://learn.microsoft.com/en-us/azure/databricks/).
 
-We will provide a comprehensive review of deployment approaches and templates for AI models satisfying the two soverignity requirements of data at rest and in-transit staying within Canada borders. Initial Azure Bicep scripts for deployment of Azure Machine Learning, Microsoft Foundry, and Azure Databricks through Infrastructure as Code (IaC) can be found in the ```infra``` folder. More updates to the IaC scripts and deployment scripts to come!
+We will provide a comprehensive review of deployment approaches and templates for AI models satisfying the two soverignity requirements of data at rest and in-transit staying within Canada borders. 
+
+Initial Azure Bicep scripts for deployment of Azure Machine Learning, Microsoft Foundry, and Azure Databricks through Infrastructure as Code (IaC) can be found in the ```infra``` folder. SAIL does not go deep into the architecture and design on AI landing zones themselves, rather it is focused on sovereign AI models deployment and configurations. See this official repo [Azure AI Landing Zones](https://azure.github.io/AI-Landing-Zones/bicep/overview/) for its reference architecture and implementation details.
 
 ## Microsoft Foundry AI model deployment options
 
@@ -23,16 +25,17 @@ In particular for models from the Directly Sold by Azure list within Microsoft F
 
 * Alternatively, global deployment type means that data might be processed for inferencing in any Foundry location in the world. Data zone is not applicable for Canada as only US and Europe regions have [Data Zone support](https://azure.microsoft.com/en-us/blog/announcing-the-availability-of-azure-openai-data-zones-and-latest-updates-from-azure-ai/?msockid=140ffb7f5488655f0412ed745540640a). 
 
-* As of May 1, 2026, these are the models within AI Foundry that provide guaranteed data in-transit processing within Canada:
+* As of May 25, 2026, these are the models within AI Foundry that provide guaranteed data in-transit processing within Canada:
   * Standard for [Pay-As-You-Go deployments](https://learn.microsoft.com/en-us/azure/ai-foundry/foundry-models/concepts/models-sold-directly-by-azure?view=foundry&preserve-view=true&tabs=global-standard-aoai%2Cstandard-chat-completions%2Cglobal-standard&pivots=azure-openai#standard-deployment-regional-models-by-endpoint) (available through Microsoft Foundry deployed in Canada East region):
     * gpt-4.1-mini
     * gpt-4o (Version 1120)
     * text embedding models (ada, 3-large, 3-small)
   * Regional [Provisioned Throughput Units (PTU) deployments](https://learn.microsoft.com/en-us/azure/ai-foundry/foundry-models/concepts/models-sold-directly-by-azure?view=foundry&preserve-view=true&tabs=provisioned%2Cstandard-chat-completions%2Cglobal-standard&pivots=azure-openai#provisioned-deployment-model-availability) (available through Microsoft Foundry deployed in Canada East region):
     * o3-mini
-    * gpt-5-mini (though it is currently out of capacity)
+    * gpt-5-mini
     * gpt-5
-    * gpt-5.1 (though it is currently out of capacity)
+    * gpt-5.1
+    * gpt-5.2 (only available in Canada Central)
     * gpt-4o (Versions 1120, 0806, 0513 - also available in Canada Central)
     * gpt-4o-mini
 
