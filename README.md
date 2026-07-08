@@ -1,3 +1,10 @@
+<h1 align="center">
+  <img src="./docs/sail-with-k8s.png" width="128" />
+  <br>
+  SAIL with Azure RedHat OpenShift (ARO)
+  <br>
+</h1>
+
 ## Objective
 
 This Sovereign AI Landing Zone (SAIL) repository provides a secure foundation for deploying AI models within Canada’s borders on Azure, so organizations can build, scale, and innovate while maintaining the highest standards of privacy and compliance. As the initial focus, we consider sovereignty on Azure as satisfying two key requirements:
