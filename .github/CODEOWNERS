@@ -1,0 +1,4 @@
+# CODEOWNERS for SAIL with ARO
+# These owners are the default owners for everything in the repository and are
+# requested for review on every pull request.
+* @erleonard @pittar @morey-tech
