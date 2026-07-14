@@ -1,89 +1,56 @@
-## Infrastructure as code to deploy Microsoft Foundry and Azure Machine Learning with proper private networking controls
+## Infrastructure as code for the ARO landing-zone foundation
 
-## What's New
+This folder holds the Azure IaC that provisions the shared foundation for the
+Azure Red Hat OpenShift (ARO) cluster that hosts Cohere North, with private
+networking controls.
 
-### Automated Deployment Script (PowerShell)
-We've added comprehensive PowerShell-based deployment automation to simplify infrastructure deployment:
+> Scope note: the previous Azure ML / Microsoft Foundry / Azure Databricks
+> templates have been removed — Cohere North serves its own models on in-cluster
+> GPU nodes and uses external Azure managed PostgreSQL and Redis. ARO cluster
+> provisioning and the managed dependencies are tracked as separate templates.
 
-- **`deploy.ps1`**: Main deployment script with support for selective deployments (all, vnet, aml, foundry)
-- **Configuration Files**: Environment-specific JSON configuration files (`config.json`, `config.prod.json`)
-- **Automated Resource Management**: Automatic resource group creation and subscription handling
-- **Multi-Environment Support**: Easy switching between development and production configurations
-- **Error Handling**: Comprehensive validation and error reporting
+## Current contents
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed usage instructions and examples.
+- `vnet.bicep` / `vnet.parameters.json` — virtual network (192.168.0.0/16) with a
+  private-endpoint subnet (`pe-subnet`) used by managed dependencies (PostgreSQL,
+  Redis, Key Vault). ARO master/worker subnets, route tables/UDRs and NSGs are
+  added as part of the ARO networking work.
+- `modules/dependent/keyvault.bicep` — Key Vault with private endpoint (used by
+  the External Secrets Operator / Workload Identity integration).
+- `modules/dependent/containerregistry.bicep` — container registry with private
+  endpoint (optional image mirror for the Cohere OCI registries).
+- `modules/dependent/applicationinsights.bicep` — Log Analytics workspace (log
+  sink for the OpenShift cluster log forwarder).
+- `modules/dependent/storage.bicep` — storage account with private endpoint
+  (optional, for object-storage needs).
+- `deploy.ps1` + `config.json` / `config.prod.json` — deployment orchestration
+  and per-environment configuration.
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for usage.
 
 ### Private DNS Zone Control
-New parameter to control private DNS zone creation for enterprise scenarios:
 
-- **`createPrivateDnsZones`** parameter (default: `true`) - Set to `false` to suppress DNS zone creation
-- Applies to all resources: Key Vault, Storage, Container Registry, Azure ML, and Foundry
-- Useful for:
-  - Centralized DNS management in hub-spoke architectures
-  - Environments where DNS zones already exist
-  - Custom DNS configurations
-  - Azure Private DNS Resolver scenarios
+`createPrivateDnsZones` (default: `true`) controls private DNS zone creation for
+private endpoints. Set to `false` for centralized/hub-spoke DNS or when zones
+already exist.
 
-**Example usage:**
 ```json
 {
   "createPrivateDnsZones": false
 }
 ```
 
-Or via command line:
-```bash
-az deployment group create --template-file aml.bicep --parameters createPrivateDnsZones=false ...
-```
-
----
-
 ## Manual Deployment
 
-### Initial set-up for resource-group(s) and virtual network
-
-Create new (or use existing) resource group(s)
+### Resource group(s) and virtual network
 
 ```bash
 az group create --name <new-rg-name> --location <your-selected-region>
 az group create --name <new-rg-name-vnet> --location <your-selected-region>
 ```
-Create virtual network and the subnet in an independent resource group:
+
+Deploy the virtual network:
 
 ```bash
-az deployment group create --resource-group <new-rg-name-vnet> --template-file vnet.bicep
+az deployment group create --resource-group <new-rg-name-vnet> --template-file vnet.bicep --parameters vnet.parameters.json
 ```
-
-### Steps for Azure Machine Learning
-
-Deploy the ```aml.bicep``` infrastructure as code:
-
-```bash
-az deployment group create --resource-group <new-rg-name> --template-file aml.bicep --parameters vnetName="private-vnet" vnetRgName="<new-rg-name-vnet>" subnetName="pe-subnet"
-
-```
-
-
-### Steps for Microsoft Foundry
-
-Deploy the ```foundry.bicep``` infrastructure as code:
-
-```bash
-az deployment group create --resource-group <new-rg-name> --template-file foundry-basic.bicep --parameters vnetRgName="<new-rg-name-vnet>"
-```
-
-### Steps for Azure Databricks
-
-Deploy the ```databricks.bicep``` infrastructure as code:
-
-```bash
-az deployment group create --resource-group <new-rg-name> --template-file databricks.bicep --parameters location=canadacentral vnetRgName="<new-rg-name-vnet>"
-```
-
-This deploys an Azure Databricks workspace with:
-- VNet injection (secure cluster connectivity) using `databricks-host-subnet` and `databricks-container-subnet`
-- Public network access disabled and no public IPs on cluster nodes
-- Private endpoint (`databricks_ui_api`) on the `pe-subnet`
-- Private DNS zone `privatelink.azuredatabricks.net` (set `createPrivateDnsZones=false` to skip)
-
-Prerequisite: the VNet must already be deployed (see *Initial set-up* above) — `vnet.bicep` provisions the two delegated Databricks subnets alongside `pe-subnet`.

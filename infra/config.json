@@ -8,20 +8,6 @@
   
   "vnetName": "private-vnet",
   "subnetName": "pe-subnet",
-  
-  "amlName": "sailtest",
-  "amlFriendlyName": "SAIL Azure ML deployment demo",
-  "amlDescription": "This is an example SAIL deployment using Azure ML.",
-  "prefix": "sailtest2",
-  
-  "foundryName": "foundry-test-nodns",
-  "foundryLocation": "canadaeast",
-  "foundryProjectName": "foundry-test-nodns-proj",
-
-  "databricksName": "dbw-sail-dev",
-  "databricksSku": "premium",
-  "databricksHostSubnetName": "databricks-host-subnet",
-  "databricksContainerSubnetName": "databricks-container-subnet",
 
   "createPrivateDnsZones": false
 }
