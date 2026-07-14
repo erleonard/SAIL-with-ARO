@@ -1,104 +1,59 @@
 <h1 align="center">
   <img src="./docs/sail-with-k8s.png" width="128" />
   <br>
-  SAIL with Azure RedHat OpenShift (ARO)
+  SAIL with Azure Red Hat OpenShift (ARO)
   <br>
 </h1>
 
 ## Objective
 
-This Sovereign AI Landing Zone (SAIL) repository provides a secure foundation for deploying AI models within Canada’s borders on Azure, so organizations can build, scale, and innovate while maintaining the highest standards of privacy and compliance. As the initial focus, we consider sovereignty on Azure as satisfying two key requirements:
+This Sovereign AI Landing Zone (SAIL) repository provides a secure foundation for
+deploying the **Cohere North** agentic AI platform on **Azure Red Hat OpenShift
+(ARO)** within Canada's borders, so organizations can build, scale, and innovate
+while maintaining the highest standards of privacy and compliance. Sovereignty on
+Azure is treated as satisfying two key requirements:
 
 * Data **at rest** should be stored within Canadian Azure data centres
 * Data **in-transit** should be processed within Canadian Azure data centres
 
-The critical Azure services in supporting the deployment of sovereign AI models in Canada are [Microsoft Foundry](https://learn.microsoft.com/en-us/azure/ai-foundry/what-is-azure-ai-foundry?view=foundry&preserve-view=true), [Azure Machine Learning](https://learn.microsoft.com/en-us/azure/machine-learning/overview-what-is-azure-machine-learning?view=azureml-api-2), and [Azure Databricks](https://learn.microsoft.com/en-us/azure/databricks/).
+Cohere North is a self-hosted, Kubernetes-native platform. On ARO it serves its
+own generative, embedding, rerank, and vision-parser models on in-cluster GPU
+nodes, and relies on a small set of external Azure managed services
+(PostgreSQL, Redis) plus in-cluster OpenSearch. Because compute and data stay
+within the customer's ARO cluster and Azure tenant in a Canadian region, this
+pattern keeps both data at rest and data in-transit inside Canada.
 
-We will provide a comprehensive review of deployment approaches and templates for AI models satisfying the two soverignity requirements of data at rest and in-transit staying within Canada borders. 
+> This repository was originally focused on deploying AI models via Azure PaaS
+> (Azure Machine Learning, Microsoft Foundry, Azure Databricks). It has been
+> refocused on hosting Cohere North on ARO; the Azure PaaS model-serving assets
+> have been removed. For the Azure AI Landing Zone reference architecture, see
+> [Azure AI Landing Zones](https://azure.github.io/AI-Landing-Zones/bicep/overview/).
 
-Initial Azure Bicep scripts for deployment of Azure Machine Learning, Microsoft Foundry, and Azure Databricks through Infrastructure as Code (IaC) can be found in the ```infra``` folder. SAIL does not go deep into the architecture and design on AI landing zones themselves, rather it is focused on sovereign AI models deployment and configurations. See this official repo [Azure AI Landing Zones](https://azure.github.io/AI-Landing-Zones/bicep/overview/) for its reference architecture and implementation details.
+## Architecture overview
 
-## Microsoft Foundry AI model deployment options
+The deployment is structured as an ARO landing zone hosting the North platform:
 
-For soverignity reasons, it would be important to consider AI models deployable within Microsoft Foundry from the list of [Directly Sold by Azure](https://learn.microsoft.com/en-us/azure/ai-foundry/foundry-models/concepts/models-sold-directly-by-azure?view=foundry&tabs=global-standard-aoai%2Cstandard-chat-completions%2Cglobal-standard&pivots=azure-direct-others) models which satisfy deployment requirements from a data security and privacy perspective as outlined [here](https://learn.microsoft.com/en-us/azure/ai-foundry/responsible-ai/openai/data-privacy?view=foundry&tabs=azure-portal). 
+* **Private ARO cluster** (OpenShift 4.x, Kubernetes v1.30+) provisioned via IaC,
+  with isolated node pools for control plane, infrastructure, standard workers,
+  a dedicated OpenSearch pool, and a GPU pool for model serving.
+* **Model serving** on in-cluster NVIDIA GPU nodes managed by the GPU Operator.
+* **External managed dependencies**: Azure Database for PostgreSQL (Flexible
+  Server) and Azure Cache for Redis, reached over private endpoints.
+* **Platform services**: OpenShift GitOps (Argo CD), External Secrets Operator
+  with Azure Key Vault, Entra ID authentication, and OpenShift Logging with
+  forwarding to Azure Monitor.
 
-In particular for models from the Directly Sold by Azure list within Microsoft Foundry:
+## Infrastructure as code
 
-* Data at rest is stored in the Foundry resource in the customer's Azure tenant, within the same geography as the resource. For Canada, the geography is [Canada Central _and_ Canada East](https://learn.microsoft.com/en-us/azure/reliability/regions-list#azure-regions-list-1). Generally prompts and completions for such models are not stored [except as part of specific features](https://learn.microsoft.com/en-us/azure/ai-foundry/responsible-ai/openai/data-privacy?view=foundry&tabs=azure-portal#data-storage-for-azure-direct-models-features) such as fine-tuning and Assistant API. Another default-enabled temporary data storage feature is to [defend against abuse](https://learn.microsoft.com/en-us/azure/ai-foundry/responsible-ai/openai/data-privacy?view=foundry&tabs=azure-portal#preventing-abuse) where potentially abusive material from prompts and completions may be stored up to 30 days for the sole purpose of Microsoft review. This feature can be disabled by submitting this [form](https://customervoice.microsoft.com/Pages/ResponsePage.aspx?id=v4j5cvGGr0GRqy180BHbR7en2Ais5pxKtso_Pz4b1_xUOE9MUTFMUlpBNk5IQlZWWkcyUEpWWEhGOCQlQCN0PWcu). 
+The [`infra`](infra) folder contains the Azure Bicep foundation (virtual network,
+private-endpoint subnet, and reusable Key Vault / container registry / Log
+Analytics / storage modules) along with a PowerShell deployment script. See
+[infra/README.md](infra/README.md) and [infra/DEPLOYMENT.md](infra/DEPLOYMENT.md).
 
-* Data in-transit can be processed in various forms depending on the [model deployment type](https://learn.microsoft.com/en-us/azure/ai-foundry/foundry-models/concepts/deployment-types?view=foundry). To ensure that AI models through AI Foundry process data in-transit within Canadian Azure regions, they must be deployed as either
-  * Standard for Pay-As-You-Go deployments
-  * Regional Provisioned for Provisioned Throughput Unit - PTU (dedicated capacity with guaranteed units of throughput) deployments
+## Documentation
 
-* Alternatively, global deployment type means that data might be processed for inferencing in any Foundry location in the world. Data zone is not applicable for Canada as only US and Europe regions have [Data Zone support](https://azure.microsoft.com/en-us/blog/announcing-the-availability-of-azure-openai-data-zones-and-latest-updates-from-azure-ai/?msockid=140ffb7f5488655f0412ed745540640a). 
-
-* As of May 25, 2026, these are the models within AI Foundry that provide guaranteed data in-transit processing within Canada:
-  * Standard for [Pay-As-You-Go deployments](https://learn.microsoft.com/en-us/azure/ai-foundry/foundry-models/concepts/models-sold-directly-by-azure?view=foundry&preserve-view=true&tabs=global-standard-aoai%2Cstandard-chat-completions%2Cglobal-standard&pivots=azure-openai#standard-deployment-regional-models-by-endpoint) (available through Microsoft Foundry deployed in Canada East region):
-    * gpt-4.1-mini
-    * gpt-4o (Version 1120)
-    * text embedding models (ada, 3-large, 3-small)
-  * Regional [Provisioned Throughput Units (PTU) deployments](https://learn.microsoft.com/en-us/azure/ai-foundry/foundry-models/concepts/models-sold-directly-by-azure?view=foundry&preserve-view=true&tabs=provisioned%2Cstandard-chat-completions%2Cglobal-standard&pivots=azure-openai#provisioned-deployment-model-availability) (available through Microsoft Foundry deployed in Canada East region):
-    * o3-mini
-    * gpt-5-mini
-    * gpt-5
-    * gpt-5.1
-    * gpt-5.2 (only available in Canada Central)
-    * gpt-4o (Versions 1120, 0806, 0513 - also available in Canada Central)
-    * gpt-4o-mini
-
-* There are also many AI models that could be deployed using the Microsoft Foundry (classic) hub-based service using managed compute, such as [certain Cohere models](https://learn.microsoft.com/en-us/azure/ai-foundry/foundry-models/concepts/models-sold-directly-by-azure?view=foundry&preserve-view=true&tabs=global-standard-aoai%2Cstandard-chat-completions%2Cglobal-standard&pivots=azure-direct-others#cohere-models-sold-directly-by-azure) from the Directly Sold by Azure list. Such models would be deployed on managed GPU VMs to ensure data in-transit and data at rest remains in Canada geography in a Hub-based Foundry resource, which is based on the Azure ML deployment infrastructure as seen below. Just remember to set the Azure ML deployment script as `kind: 'hub'`.
-
-## Azure Machine Learning AI model deployment options
-
-The following is guidance to facilitate deployment of generic AI models including large language models (LLMs) on Azure Machine Learning's (AML) Managed Online Endpoints for efficient, scalable, and secure real-time inference.​ Two patterns of deployment types are described: models through vLLM and generic AI models. By leveraging AML's [Managed Online Endpoints](https://learn.microsoft.com/en-us/azure/machine-learning/how-to-deploy-online-endpoints?view=azureml-api-2&tabs=cli), the model would be deployed within the AML region and secured through inbound and outbound private connections thus ensuring a secured and sovereign solution. The AI model is deployed in a [managed virtual network](https://learn.microsoft.com/en-us/azure/machine-learning/concept-secure-online-endpoint?view=azureml-api-2&tabs=cli) within the region of the Azure ML service, which should be in Canada Central.
-
-In particular, this pattern gives you the ability to utilize OOTB Hugging Face models onto Managed Online Endpoints in AML, using managed compute.
-
- ### Pre-requisites : 
-
-1. vLLM: A high-throughput, memory-efficient inference engine designed for LLMs.​ We will be creating a custom Dockerized environment for vLLM on AML as a foundational step.
-2. (Optional) You can also bring in any generic AI models by leveraging the custom Dockerfile and providing a generic score.py file that loads the model in memory and defines inferencing.
-3. Managed Online Endpoints: A feature in Azure Machine Learning that simplifies deploying machine learning models for real-time inference by handling serving, scaling, securing, and monitoring complexities.​ At the time of writing, an additional context to using this feature is to ensure data and regional residency abilities that could be achieved through the setup here.
-4. Model of your choice from HuggingFace (or any generic AI model). Knowledge around usage of HuggingFace models and the workflow and AuthN aspects are assumed.
-
-### Key Deployment Steps:
-
-1. Create a Custom Environment on AzureML: Define a Dockerfile specifying the environment for the model, utilizing vLLM's base container with necessary dependencies.​
-
-2. Deploy the AzureML Managed Online Endpoint: Configure the endpoint and deployment settings using YAML files, specifying the model to deploy, environment variables, and instance configurations.​
-
-3. Test the Deployment: Retrieve the endpoint's scoring URI and API keys, then send test requests to ensure the model is serving correctly.​ Using MS Entra for authentication and authorization is supported as well: https://learn.microsoft.com/en-us/azure/machine-learning/concept-endpoints-online-auth?view=azureml-api-2
-
-4. (Optional) Autoscale the AML Endpoint: Set up autoscaling rules to dynamically adjust the number of instances based on real-time metrics, ensuring efficient handling of varying loads.​
-
-5. For pre-trained Foundry large language models, as long as these models offer a managed compute deployment option, you can use the model deployment wizard or follow the guide here: https://learn.microsoft.com/en-us/azure/foundry-classic/how-to/deploy-models-managed?pivots=ai-foundry-portal though note that for private and security reasons, the managed compute endpoint should always be set to use private endpoint (which is the default configuration in this repo).
-
-### Essence of the steps via code/CLI commands: 
-
-1. Authentication
-```
-az account set --subscription <subscription ID>
-az configure --defaults workspace=<Azure Machine Learning workspace name> group=<resource group>
-```
-2. Build Environment
-```
-az ml environment create -f environment.yml
-```
-3. Deploy to Managed Online Endpoint
-```
-az ml online-endpoint create -f endpoint.yml
-az ml online-deployment create -f deployment.yml --all-traffic
-```
-4. Get API endpoint and API keys
-```
-az ml online-endpoint show -n <name>
-az ml online-endpoint get-credentials -n <name>
-```
-5. Test the model using the `test_model.py` file
-
-## Azure Databricks AI deployment options
-
-Details on Azure Databricks soverign AI options within Canada regions can be found here: [Deploying Azure Databricks AI for Canadian Data Residency](databricks/Azure-Databricks-AI-Canadian-Data-Residency.md).
+* [`docs/`](docs) — Cohere North deployment reference material used to plan the
+  ARO landing zone.
 
 ## Acknowledgements
 
