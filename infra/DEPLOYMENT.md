@@ -4,7 +4,9 @@ This guide covers deploying the shared network foundation for the ARO cluster
 that hosts Cohere North, using the PowerShell deployment script.
 
 > ARO cluster provisioning and managed dependencies (Azure Database for
-> PostgreSQL, Azure Cache for Redis, Key Vault) are added as separate templates.
+> PostgreSQL, Azure Cache for Redis, Key Vault) are separate templates. The ARO
+> cluster entry point is `aro.bicep`; `deploy.ps1` continues to deploy only the
+> existing shared VNet foundation.
 
 ## Prerequisites
 
@@ -46,6 +48,18 @@ This will deploy:
 - Virtual Network with a private-endpoint subnet
 
 ## Advanced Usage
+
+### Deploy the private ARO cluster
+
+Use the subscription-scope `aro.bicep` entry point to deploy the ARO network
+and cluster modules. It requires the Protected B firewall private IP, ARO
+service-principal client and object IDs, client secret, Red Hat pull secret, and
+the ARO resource-provider service-principal object ID. See [README.md](README.md)
+for the complete command.
+
+The deployment standardizes the control-plane and initial worker nodes on
+`Standard_D8s_v5`. Create the infra pool afterward as an OpenShift `MachineSet`
+with three `Standard_D8s_v5` nodes.
 
 ### Deploy only the VNet
 
