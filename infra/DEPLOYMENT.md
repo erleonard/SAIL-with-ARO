@@ -13,25 +13,6 @@ separate templates.
 4. **Login to Azure**: Run `az login` before deployment
 5. **Red Hat pull secret**: A pull secret from the Red Hat Hybrid Cloud Console
 
-Register the Azure Network feature required to create the Azure Firewall public
-IP, then wait until its state is `Registered`:
-
-```powershell
-az feature register `
-   --namespace Microsoft.Network `
-   --name AllowBringYourOwnPublicIpAddress
-
-az feature show `
-   --namespace Microsoft.Network `
-   --name AllowBringYourOwnPublicIpAddress `
-   --query properties.state `
-   --output tsv
-
-az provider register --namespace Microsoft.Network --wait
-```
-
-The deployment script checks this prerequisite before creating resources.
-
 ## Quick Start
 
 ### 1. Login to Azure
