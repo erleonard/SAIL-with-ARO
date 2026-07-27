@@ -43,9 +43,17 @@ Edit the `config.json` file with your specific values:
 ### 3. Set protected inputs
 
 ```powershell
-$env:ARO_FIREWALL_PRIVATE_IP = '<firewall-private-ip>'
+$env:ARO_FIREWALL_PRIVATE_IP = az network firewall show `
+   --resource-group '<firewall-resource-group>' `
+   --name '<firewall-name>' `
+   --query 'ipConfigurations[0].privateIPAddress' `
+   --output tsv
 $env:ARO_PULL_SECRET = Get-Content .\pull-secret.txt -Raw
 ```
+
+Replace the firewall resource group and name placeholders in the lookup command.
+The environment variable must contain the resulting private IPv4 address, such
+as `10.0.1.4`; do not assign the text `<firewall-private-ip>`.
 
 ### 4. Deploy
 

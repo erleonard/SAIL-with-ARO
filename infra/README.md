@@ -56,10 +56,18 @@ The deployment script runs this template when `DeploymentType` is `all` or
 `aro`:
 
 ```powershell
-$env:ARO_FIREWALL_PRIVATE_IP = '<firewall-private-ip>'
+$env:ARO_FIREWALL_PRIVATE_IP = az network firewall show `
+  --resource-group '<firewall-resource-group>' `
+  --name '<firewall-name>' `
+  --query 'ipConfigurations[0].privateIPAddress' `
+  --output tsv
 $env:ARO_PULL_SECRET = Get-Content .\pull-secret.txt -Raw
 .\deploy.ps1 -ConfigFile .\config.json -DeploymentType all
 ```
+
+Replace the firewall lookup placeholders with the existing firewall resource
+group and name. `ARO_FIREWALL_PRIVATE_IP` must contain the resulting private
+IPv4 address, not the placeholder text.
 
 For a manual deployment, use the equivalent command below.
 
