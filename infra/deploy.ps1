@@ -97,6 +97,29 @@ function Assert-AroConfiguration {
     }
 }
 
+function Assert-AroClusterState {
+    param(
+        [PSCustomObject]$Configuration
+    )
+
+    $clusterState = az aro list `
+        --resource-group $Configuration.resourceGroup `
+        --query "[?name=='$($Configuration.clusterName)'].provisioningState | [0]" `
+        --output tsv
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to query the existing ARO cluster state."
+    }
+
+    if ($clusterState -eq 'Failed') {
+        throw "ARO cluster '$($Configuration.clusterName)' is in Failed state. Microsoft requires failed cluster creations to be deleted before retrying. Run 'az aro delete --resource-group $($Configuration.resourceGroup) --name $($Configuration.clusterName) --yes', wait for deletion to finish, then rerun this deployment."
+    }
+
+    if ($clusterState -eq 'Deleting') {
+        throw "ARO cluster '$($Configuration.clusterName)' is still deleting. Wait until it is removed, then rerun this deployment."
+    }
+}
+
 # Main deployment function
 function Start-Deployment {
     Write-Status "Starting ARO landing-zone infrastructure deployment..." "Info"
@@ -130,6 +153,10 @@ function Start-Deployment {
     # Get current subscription
     $currentSub = az account show | ConvertFrom-Json
     Write-Status "Using subscription: $($currentSub.name) ($($currentSub.id))" "Info"
+
+    if ($DeploymentType -eq 'all' -or $DeploymentType -eq 'aro') {
+        Assert-AroClusterState -Configuration $config
+    }
 
     # Create resource groups
     Write-Status "Creating resource groups..." "Info"

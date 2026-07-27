@@ -86,6 +86,17 @@ Create the three-node infra pool after cluster provisioning as an OpenShift
 `MachineSet`, using the `infraMachineSetVmSize` output (`Standard_D8s_v5`). GPU
 and OpenSearch pools remain separate post-provisioning work.
 
+If cluster creation fails, delete the failed ARO cluster before retrying. ARO
+does not support retrying failed cluster creation in place:
+
+```powershell
+az aro delete --resource-group rg-sail-dev --name aro-sail-dev --yes
+.\deploy.ps1 -ConfigFile .\config.json -DeploymentType aro
+```
+
+The deployment script detects `Failed` and `Deleting` cluster states before
+starting another deployment.
+
 Azure Firewall denies arbitrary internet egress by default. ARO egress lockdown
 proxies the endpoints required for cluster operation. Add explicit firewall
 rules for optional external registries or application destinations as needed.

@@ -146,6 +146,24 @@ az account list --output table
 ### Resource Group Already Exists
 The script will use existing resource groups if they already exist. This is by design.
 
+### Failed ARO Cluster Creation
+
+Microsoft does not support retrying a failed ARO cluster creation in place. The
+deployment script detects this state before creating resources. Delete only the
+failed cluster and its ARO-managed objects, then rerun the deployment:
+
+```powershell
+az aro delete `
+   --resource-group rg-sail-dev `
+   --name aro-sail-dev `
+   --yes
+
+.\deploy.ps1 -ConfigFile .\config.json -DeploymentType aro
+```
+
+The shared network, Azure Firewall, managed identities, and their role
+assignments are retained.
+
 ### VNet Already Exists
 Use the `-SkipVNetDeployment` flag to skip VNet creation.
 
