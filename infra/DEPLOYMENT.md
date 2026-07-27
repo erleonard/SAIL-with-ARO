@@ -11,8 +11,7 @@ separate templates.
 2. **PowerShell**: Version 7.0 or later recommended
 3. **Azure Subscription**: Active Azure subscription with appropriate permissions
 4. **Login to Azure**: Run `az login` before deployment
-5. **Protected B firewall**: An existing firewall private IP for ARO egress
-6. **Red Hat pull secret**: A pull secret from the Red Hat Hybrid Cloud Console
+5. **Red Hat pull secret**: A pull secret from the Red Hat Hybrid Cloud Console
 
 ## Quick Start
 
@@ -43,17 +42,8 @@ Edit the `config.json` file with your specific values:
 ### 3. Set protected inputs
 
 ```powershell
-$env:ARO_FIREWALL_PRIVATE_IP = az network firewall show `
-   --resource-group '<firewall-resource-group>' `
-   --name '<firewall-name>' `
-   --query 'ipConfigurations[0].privateIPAddress' `
-   --output tsv
 $env:ARO_PULL_SECRET = Get-Content .\pull-secret.txt -Raw
 ```
-
-Replace the firewall resource group and name placeholders in the lookup command.
-The environment variable must contain the resulting private IPv4 address, such
-as `10.0.1.4`; do not assign the text `<firewall-private-ip>`.
 
 ### 4. Deploy
 
@@ -63,7 +53,8 @@ as `10.0.1.4`; do not assign the text `<firewall-private-ip>`.
 
 This will deploy:
 - Virtual Network with a private-endpoint subnet
-- ARO network with firewall routing and private control-plane/worker subnets
+- ARO network with a provisioned Azure Firewall, firewall routing, and private
+   control-plane/worker subnets
 - Nine user-assigned managed identities and their required role assignments
 - Private ARO cluster
 
@@ -129,9 +120,14 @@ The script deploys resources in the following order:
    - Private endpoint subnet (192.168.0.0/24)
 
 3. **ARO network, identities, and cluster** (`all` or `aro`)
+   - Azure Firewall with an automatically assigned private IP
    - Firewall UDR and private ARO subnets
    - Nine user-assigned managed identities with operator-specific RBAC
    - Private ARO cluster
+
+Azure Firewall denies arbitrary internet egress by default. ARO egress lockdown
+proxies the endpoints required for cluster operation. Add explicit firewall
+rules for optional external registries or application destinations as needed.
 
 ## Troubleshooting
 

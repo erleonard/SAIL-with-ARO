@@ -71,23 +71,6 @@ function Test-AzureCLI {
     }
 }
 
-function Test-PrivateIPv4Address {
-    param(
-        [string]$Address
-    )
-
-    $parsedAddress = $null
-    if (-not [System.Net.IPAddress]::TryParse($Address, [ref]$parsedAddress) -or
-        $parsedAddress.AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetwork) {
-        return $false
-    }
-
-    $octets = $parsedAddress.GetAddressBytes()
-    return $octets[0] -eq 10 -or
-        ($octets[0] -eq 172 -and $octets[1] -ge 16 -and $octets[1] -le 31) -or
-        ($octets[0] -eq 192 -and $octets[1] -eq 168)
-}
-
 function Assert-AroConfiguration {
     param(
         [PSCustomObject]$Configuration
@@ -107,14 +90,6 @@ function Assert-AroConfiguration {
         if ([string]::IsNullOrWhiteSpace([string]$Configuration.$property)) {
             throw "Configuration property '$property' is required for an ARO deployment."
         }
-    }
-
-    if ([string]::IsNullOrWhiteSpace($env:ARO_FIREWALL_PRIVATE_IP)) {
-        throw 'Environment variable ARO_FIREWALL_PRIVATE_IP is required for an ARO deployment.'
-    }
-
-    if (-not (Test-PrivateIPv4Address -Address $env:ARO_FIREWALL_PRIVATE_IP)) {
-        throw "Environment variable ARO_FIREWALL_PRIVATE_IP must contain the firewall's private IPv4 address, not a placeholder. Received '$($env:ARO_FIREWALL_PRIVATE_IP)'."
     }
 
     if ([string]::IsNullOrWhiteSpace($env:ARO_PULL_SECRET)) {
@@ -211,7 +186,6 @@ function Start-Deployment {
             "clusterName=$($config.clusterName)"
             "domain=$($config.domain)"
             "vnetName=$($config.vnetName)"
-            "firewallPrivateIpAddress=$($env:ARO_FIREWALL_PRIVATE_IP)"
             "aroResourceProviderObjectId=$aroResourceProviderObjectId"
             "pullSecret=$($env:ARO_PULL_SECRET)"
         )

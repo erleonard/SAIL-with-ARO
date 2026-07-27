@@ -25,11 +25,17 @@ param privateEndpointSubnetName string = 'pe-subnet'
 @description('Private-endpoint subnet address prefix')
 param privateEndpointSubnetPrefix string = '192.168.0.0/24'
 
+@description('Azure Firewall subnet address prefix')
+param firewallSubnetPrefix string = '192.168.1.0/26'
+
+@description('Name of the Azure Firewall')
+param firewallName string = 'aro-firewall'
+
+@description('Name of the Azure Firewall public IP address')
+param firewallPublicIpName string = 'aro-firewall-pip'
+
 @description('Name of the route table attached to the ARO subnets')
 param routeTableName string = 'aro-route-table'
-
-@description('Private IP address of the Protected B firewall used for outbound traffic')
-param firewallPrivateIpAddress string
 
 @description('Principal IDs of the ARO platform workload identities')
 param operatorIdentityPrincipalIds object
@@ -55,7 +61,7 @@ resource defaultRoute 'Microsoft.Network/routeTables/routes@2024-05-01' = {
   properties: {
     addressPrefix: '0.0.0.0/0'
     nextHopType: 'VirtualAppliance'
-    nextHopIpAddress: firewallPrivateIpAddress
+    nextHopIpAddress: firewall.properties.ipConfigurations[0].properties.privateIPAddress
   }
 }
 
@@ -106,6 +112,12 @@ resource virtualNetwork 'Microsoft.Network/virtualNetworks@2024-05-01' = {
           privateEndpointNetworkPolicies: 'Disabled'
         }
       }
+      {
+        name: 'AzureFirewallSubnet'
+        properties: {
+          addressPrefix: firewallSubnetPrefix
+        }
+      }
     ]
   }
 }
@@ -123,6 +135,51 @@ resource workerSubnet 'Microsoft.Network/virtualNetworks/subnets@2024-05-01' exi
 resource privateEndpointSubnet 'Microsoft.Network/virtualNetworks/subnets@2024-05-01' existing = {
   parent: virtualNetwork
   name: privateEndpointSubnetName
+}
+
+resource firewallSubnet 'Microsoft.Network/virtualNetworks/subnets@2024-05-01' existing = {
+  parent: virtualNetwork
+  name: 'AzureFirewallSubnet'
+}
+
+resource firewallPublicIp 'Microsoft.Network/publicIPAddresses@2024-05-01' = {
+  name: firewallPublicIpName
+  location: location
+  tags: tags
+  sku: {
+    name: 'Standard'
+    tier: 'Regional'
+  }
+  properties: {
+    publicIPAddressVersion: 'IPv4'
+    publicIPAllocationMethod: 'Static'
+  }
+}
+
+resource firewall 'Microsoft.Network/azureFirewalls@2024-05-01' = {
+  name: firewallName
+  location: location
+  tags: tags
+  properties: {
+    sku: {
+      name: 'AZFW_VNet'
+      tier: 'Standard'
+    }
+    threatIntelMode: 'Alert'
+    ipConfigurations: [
+      {
+        name: 'firewallIpConfiguration'
+        properties: {
+          subnet: {
+            id: firewallSubnet.id
+          }
+          publicIPAddress: {
+            id: firewallPublicIp.id
+          }
+        }
+      }
+    ]
+  }
 }
 
 var subnetIdentityRoles = [
@@ -223,3 +280,5 @@ output masterSubnetId string = masterSubnet.id
 output workerSubnetId string = workerSubnet.id
 output privateEndpointSubnetId string = privateEndpointSubnet.id
 output routeTableId string = routeTable.id
+output firewallId string = firewall.id
+output firewallPrivateIpAddress string = firewall.properties.ipConfigurations[0].properties.privateIPAddress

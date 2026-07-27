@@ -13,8 +13,9 @@ networking controls.
 
 - `aro.bicep` — subscription-scope entry point that creates the network and
   cluster resource groups and composes the ARO modules.
-- `modules/aro/network.bicep` — ARO virtual network, dedicated control-plane and
-  worker subnets, private-endpoint subnet, firewall UDR, and required VNet role
+- `modules/aro/network.bicep` — ARO virtual network, Azure Firewall with an
+  automatically assigned private IP, dedicated control-plane and worker
+  subnets, private-endpoint subnet, firewall UDR, and required VNet role
   assignments.
 - `modules/aro/cluster.bicep` — private ARO cluster with FIPS enabled, three
   `Standard_D8s_v5` control-plane nodes and nine `Standard_D8s_v5` workers.
@@ -47,27 +48,19 @@ az provider register --namespace Microsoft.Authorization --wait
 ```
 
 Resolve the object ID of the Azure Red Hat OpenShift resource-provider service
-principal, then deploy at subscription scope. The deployment creates the nine
-user-assigned managed identities required by ARO and grants each identity its
-operator-specific role. Pass the Red Hat pull secret from a protected
-environment variable so it is not stored in source files or shell history.
+principal, then deploy at subscription scope. The deployment creates Azure
+Firewall with an automatically assigned private IP, the nine user-assigned
+managed identities required by ARO, and each identity's operator-specific role.
+Pass the Red Hat pull secret from a protected environment variable so it is not
+stored in source files or shell history.
 
 The deployment script runs this template when `DeploymentType` is `all` or
 `aro`:
 
 ```powershell
-$env:ARO_FIREWALL_PRIVATE_IP = az network firewall show `
-  --resource-group '<firewall-resource-group>' `
-  --name '<firewall-name>' `
-  --query 'ipConfigurations[0].privateIPAddress' `
-  --output tsv
 $env:ARO_PULL_SECRET = Get-Content .\pull-secret.txt -Raw
 .\deploy.ps1 -ConfigFile .\config.json -DeploymentType all
 ```
-
-Replace the firewall lookup placeholders with the existing firewall resource
-group and name. `ARO_FIREWALL_PRIVATE_IP` must contain the resulting private
-IPv4 address, not the placeholder text.
 
 For a manual deployment, use the equivalent command below.
 
@@ -84,7 +77,6 @@ az deployment sub create `
     managedResourceGroupName=aro-sail-dev-canadaeast `
     clusterName=aro-sail-dev `
     domain=sail-dev `
-    firewallPrivateIpAddress=$env:ARO_FIREWALL_PRIVATE_IP `
     aroResourceProviderObjectId=$aroRpObjectId `
     pullSecret=$env:ARO_PULL_SECRET
 ```
@@ -93,6 +85,10 @@ The Azure ARO resource creates only the control plane and initial worker pool.
 Create the three-node infra pool after cluster provisioning as an OpenShift
 `MachineSet`, using the `infraMachineSetVmSize` output (`Standard_D8s_v5`). GPU
 and OpenSearch pools remain separate post-provisioning work.
+
+Azure Firewall denies arbitrary internet egress by default. ARO egress lockdown
+proxies the endpoints required for cluster operation. Add explicit firewall
+rules for optional external registries or application destinations as needed.
 
 ### Private DNS Zone Control
 

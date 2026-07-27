@@ -21,9 +21,6 @@ param domain string
 @description('Name of the ARO virtual network')
 param vnetName string = 'private-vnet'
 
-@description('Private IP address of the Protected B firewall used for outbound traffic')
-param firewallPrivateIpAddress string
-
 @description('Object ID of the Azure Red Hat OpenShift resource-provider service principal')
 param aroResourceProviderObjectId string
 
@@ -61,7 +58,6 @@ module network './modules/aro/network.bicep' = {
   params: {
     location: location
     vnetName: vnetName
-    firewallPrivateIpAddress: firewallPrivateIpAddress
     operatorIdentityPrincipalIds: identities.outputs.operatorIdentityPrincipalIds
     aroResourceProviderObjectId: aroResourceProviderObjectId
     tags: tags
@@ -88,5 +84,7 @@ module cluster './modules/aro/cluster.bicep' = {
 output clusterId string = cluster.outputs.clusterId
 output virtualNetworkId string = network.outputs.virtualNetworkId
 output privateEndpointSubnetId string = network.outputs.privateEndpointSubnetId
+output firewallId string = network.outputs.firewallId
+output firewallPrivateIpAddress string = network.outputs.firewallPrivateIpAddress
 output nodeVmSize string = cluster.outputs.nodeVmSize
 output infraMachineSetVmSize string = cluster.outputs.infraMachineSetVmSize
