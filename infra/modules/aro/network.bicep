@@ -274,6 +274,16 @@ resource aroResourceProviderVnetRole 'Microsoft.Authorization/roleAssignments@20
   }
 }
 
+resource aroResourceProviderRouteTableRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(routeTable.id, aroResourceProviderObjectId, 'aro-network-role')
+  scope: routeTable
+  properties: {
+    principalId: aroResourceProviderObjectId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '42f3c60f-e7b1-46d7-ba56-6de681664342')
+  }
+}
+
 output virtualNetworkId string = virtualNetwork.id
 output masterSubnetId string = masterSubnet.id
 output workerSubnetId string = workerSubnet.id
