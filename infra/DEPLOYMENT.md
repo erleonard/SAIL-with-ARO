@@ -1,12 +1,9 @@
 # ARO Landing-Zone Infrastructure Deployment Guide
 
-This guide covers deploying the shared network foundation for the ARO cluster
-that hosts Cohere North, using the PowerShell deployment script.
-
-> ARO cluster provisioning and managed dependencies (Azure Database for
-> PostgreSQL, Azure Cache for Redis, Key Vault) are separate templates. The ARO
-> cluster entry point is `aro.bicep`; `deploy.ps1` continues to deploy only the
-> existing shared VNet foundation.
+This guide covers deploying the shared network foundation and ARO cluster that
+hosts Cohere North, using the PowerShell deployment script. Managed dependencies
+(Azure Database for PostgreSQL, Azure Cache for Redis, and Key Vault) remain
+separate templates.
 
 ## Prerequisites
 
@@ -14,6 +11,8 @@ that hosts Cohere North, using the PowerShell deployment script.
 2. **PowerShell**: Version 7.0 or later recommended
 3. **Azure Subscription**: Active Azure subscription with appropriate permissions
 4. **Login to Azure**: Run `az login` before deployment
+5. **Protected B firewall**: An existing firewall private IP for ARO egress
+6. **Red Hat pull secret**: A pull secret from the Red Hat Hybrid Cloud Console
 
 ## Quick Start
 
@@ -32,13 +31,23 @@ Edit the `config.json` file with your specific values:
   "location": "canadaeast",
   "resourceGroup": "rg-sail-dev",
   "vnetResourceGroup": "rg-sail-network-dev",
+   "managedResourceGroupName": "aro-sail-dev-canadaeast",
+   "clusterName": "aro-sail-dev",
+   "domain": "sail-dev",
   "vnetName": "private-vnet",
   "subnetName": "pe-subnet",
   "createPrivateDnsZones": false
 }
 ```
 
-### 3. Deploy
+### 3. Set protected inputs
+
+```powershell
+$env:ARO_FIREWALL_PRIVATE_IP = '<firewall-private-ip>'
+$env:ARO_PULL_SECRET = Get-Content .\pull-secret.txt -Raw
+```
+
+### 4. Deploy
 
 ```powershell
 .\deploy.ps1
@@ -46,16 +55,21 @@ Edit the `config.json` file with your specific values:
 
 This will deploy:
 - Virtual Network with a private-endpoint subnet
+- ARO network with firewall routing and private control-plane/worker subnets
+- Nine user-assigned managed identities and their required role assignments
+- Private ARO cluster
 
 ## Advanced Usage
 
 ### Deploy the private ARO cluster
 
-Use the subscription-scope `aro.bicep` entry point to deploy the ARO network
-and cluster modules. It requires the Protected B firewall private IP, ARO
-service-principal client and object IDs, client secret, Red Hat pull secret, and
-the ARO resource-provider service-principal object ID. See [README.md](README.md)
-for the complete command.
+Use the `aro` deployment type to deploy the ARO network and cluster without
+running the legacy private-endpoint VNet deployment. The script resolves the ARO
+resource-provider identity automatically.
+
+```powershell
+.\deploy.ps1 -DeploymentType aro
+```
 
 The deployment standardizes the control-plane and initial worker nodes on
 `Standard_D8s_v5`. Create the infra pool afterward as an OpenShift `MachineSet`
@@ -79,11 +93,14 @@ with three `Standard_D8s_v5` nodes.
 .\deploy.ps1 -SubscriptionId "your-subscription-id"
 ```
 
-### Skip VNet Deployment (if VNet already exists)
+### Skip the legacy VNet deployment
 
 ```powershell
 .\deploy.ps1 -SkipVNetDeployment
 ```
+
+With `-DeploymentType all`, this flag skips `vnet.bicep` but still deploys the
+ARO network and cluster through `aro.bicep`.
 
 ## Configuration Files
 
@@ -102,6 +119,11 @@ The script deploys resources in the following order:
 2. **Virtual Network** (unless skipped)
    - Private virtual network (192.168.0.0/16)
    - Private endpoint subnet (192.168.0.0/24)
+
+3. **ARO network, identities, and cluster** (`all` or `aro`)
+   - Firewall UDR and private ARO subnets
+   - Nine user-assigned managed identities with operator-specific RBAC
+   - Private ARO cluster
 
 ## Troubleshooting
 
@@ -125,9 +147,9 @@ Use the `-SkipVNetDeployment` flag to skip VNet creation.
 
 ### Permission Errors
 Ensure your Azure account has:
-- Contributor role on the subscription or resource group
+- Contributor and User Access Administrator roles, or Owner, on the subscription
 - Permissions to create resource groups
-- Permissions to create network resources and private endpoints
+- Permissions to query the ARO resource-provider enterprise application
 
 ## Cleanup
 

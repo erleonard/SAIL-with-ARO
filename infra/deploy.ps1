@@ -4,12 +4,8 @@
     Deploys the ARO landing-zone infrastructure foundation to Azure
 
 .DESCRIPTION
-    This script deploys the shared network foundation used by the Azure Red Hat
-    OpenShift (ARO) cluster that hosts Cohere North:
-    - Virtual Network with a private-endpoint subnet
-
-    ARO cluster provisioning and the managed dependencies (Azure Database for
-    PostgreSQL, Azure Cache for Redis, Key Vault) are added as separate templates.
+    This script deploys the shared network foundation and Azure Red Hat
+    OpenShift (ARO) cluster that hosts Cohere North.
 
 .PARAMETER ConfigFile
     Path to the configuration JSON file. Default: config.json
@@ -18,7 +14,7 @@
     Skip VNet deployment if it already exists
 
 .PARAMETER DeploymentType
-    Type of deployment: 'all', 'vnet'
+    Type of deployment: 'all', 'vnet', or 'aro'
 
 .PARAMETER SubscriptionId
     Azure subscription ID (optional, will use current subscription if not specified)
@@ -39,7 +35,7 @@ param(
     [switch]$SkipVNetDeployment,
 
     [Parameter(Mandatory=$false)]
-    [ValidateSet('all', 'vnet')]
+    [ValidateSet('all', 'vnet', 'aro')]
     [string]$DeploymentType = 'all',
 
     [Parameter(Mandatory=$false)]
@@ -75,6 +71,36 @@ function Test-AzureCLI {
     }
 }
 
+function Assert-AroConfiguration {
+    param(
+        [PSCustomObject]$Configuration
+    )
+
+    $requiredProperties = @(
+        'location',
+        'resourceGroup',
+        'vnetResourceGroup',
+        'vnetName',
+        'managedResourceGroupName',
+        'clusterName',
+        'domain'
+    )
+
+    foreach ($property in $requiredProperties) {
+        if ([string]::IsNullOrWhiteSpace([string]$Configuration.$property)) {
+            throw "Configuration property '$property' is required for an ARO deployment."
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($env:ARO_FIREWALL_PRIVATE_IP)) {
+        throw 'Environment variable ARO_FIREWALL_PRIVATE_IP is required for an ARO deployment.'
+    }
+
+    if ([string]::IsNullOrWhiteSpace($env:ARO_PULL_SECRET)) {
+        throw 'Environment variable ARO_PULL_SECRET is required for an ARO deployment.'
+    }
+}
+
 # Main deployment function
 function Start-Deployment {
     Write-Status "Starting ARO landing-zone infrastructure deployment..." "Info"
@@ -94,6 +120,10 @@ function Start-Deployment {
     # Load configuration
     Write-Status "Loading configuration from $ConfigFile..." "Info"
     $config = Get-Content $ConfigFile | ConvertFrom-Json
+
+    if ($DeploymentType -eq 'all' -or $DeploymentType -eq 'aro') {
+        Assert-AroConfiguration -Configuration $config
+    }
 
     # Set subscription if specified
     if ($SubscriptionId) {
@@ -125,14 +155,61 @@ function Start-Deployment {
         az deployment group create `
             --name $vnetDeploymentName `
             --resource-group $config.vnetResourceGroup `
-            --template-file vnet.bicep `
-            --parameters vnet.parameters.json `
+            --template-file (Join-Path $PSScriptRoot 'vnet.bicep') `
+            --parameters `
+                "vnetName=$($config.vnetName)" `
+                "peSubnetName=$($config.subnetName)" `
             --output none
 
         if ($LASTEXITCODE -eq 0) {
             Write-Status "Virtual Network deployed successfully" "Success"
         } else {
             Write-Status "Virtual Network deployment failed" "Error"
+            exit 1
+        }
+    }
+
+    if ($DeploymentType -eq 'all' -or $DeploymentType -eq 'aro') {
+        Write-Status "Resolving the Azure Red Hat OpenShift resource-provider identity..." "Info"
+        $aroResourceProviderObjectId = az ad sp list `
+            --filter "appId eq 'f1dd0a37-89c6-4e07-bcd1-ffd3d43d8875'" `
+            --query '[0].id' `
+            --output tsv
+
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($aroResourceProviderObjectId)) {
+            throw 'Unable to resolve the Azure Red Hat OpenShift resource-provider identity.'
+        }
+
+        Write-Status "Deploying Azure Red Hat OpenShift cluster..." "Info"
+        $aroDeploymentName = "aro-deployment-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+        $aroParameters = @(
+            "location=$($config.location)"
+            "clusterResourceGroupName=$($config.resourceGroup)"
+            "networkResourceGroupName=$($config.vnetResourceGroup)"
+            "managedResourceGroupName=$($config.managedResourceGroupName)"
+            "clusterName=$($config.clusterName)"
+            "domain=$($config.domain)"
+            "vnetName=$($config.vnetName)"
+            "firewallPrivateIpAddress=$($env:ARO_FIREWALL_PRIVATE_IP)"
+            "aroResourceProviderObjectId=$aroResourceProviderObjectId"
+            "pullSecret=$($env:ARO_PULL_SECRET)"
+        )
+
+        if (-not [string]::IsNullOrWhiteSpace([string]$config.openShiftVersion)) {
+            $aroParameters += "openShiftVersion=$($config.openShiftVersion)"
+        }
+
+        az deployment sub create `
+            --name $aroDeploymentName `
+            --location $config.location `
+            --template-file (Join-Path $PSScriptRoot 'aro.bicep') `
+            --parameters $aroParameters `
+            --output none
+
+        if ($LASTEXITCODE -eq 0) {
+            Write-Status "Azure Red Hat OpenShift cluster deployed successfully" "Success"
+        } else {
+            Write-Status "Azure Red Hat OpenShift cluster deployment failed" "Error"
             exit 1
         }
     }

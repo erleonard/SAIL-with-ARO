@@ -52,6 +52,17 @@ user-assigned managed identities required by ARO and grants each identity its
 operator-specific role. Pass the Red Hat pull secret from a protected
 environment variable so it is not stored in source files or shell history.
 
+The deployment script runs this template when `DeploymentType` is `all` or
+`aro`:
+
+```powershell
+$env:ARO_FIREWALL_PRIVATE_IP = '<firewall-private-ip>'
+$env:ARO_PULL_SECRET = Get-Content .\pull-secret.txt -Raw
+.\deploy.ps1 -ConfigFile .\config.json -DeploymentType all
+```
+
+For a manual deployment, use the equivalent command below.
+
 ```powershell
 $aroRpObjectId = az ad sp list --filter "appId eq 'f1dd0a37-89c6-4e07-bcd1-ffd3d43d8875'" --query '[0].id' -o tsv
 
