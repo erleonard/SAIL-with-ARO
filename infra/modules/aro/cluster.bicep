@@ -104,6 +104,7 @@ resource cluster 'Microsoft.RedHatOpenShift/openShiftClusters@2025-07-25' = {
     masterProfile: {
       vmSize: nodeVmSize
       subnetId: masterSubnetId
+      encryptionAtHost: 'Disabled'
     }
     workerProfiles: [
       {
@@ -112,6 +113,7 @@ resource cluster 'Microsoft.RedHatOpenShift/openShiftClusters@2025-07-25' = {
         diskSizeGB: workerDiskSizeGB
         subnetId: workerSubnetId
         count: workerCount
+        encryptionAtHost: 'Disabled'
       }
     ]
     apiserverProfile: {
