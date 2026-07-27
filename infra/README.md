@@ -47,8 +47,10 @@ az provider register --namespace Microsoft.Authorization --wait
 ```
 
 Resolve the object ID of the Azure Red Hat OpenShift resource-provider service
-principal, then deploy at subscription scope. Pass secrets from protected
-environment variables so they are not stored in source files or shell history.
+principal, then deploy at subscription scope. The deployment creates the nine
+user-assigned managed identities required by ARO and grants each identity its
+operator-specific role. Pass the Red Hat pull secret from a protected
+environment variable so it is not stored in source files or shell history.
 
 ```powershell
 $aroRpObjectId = az ad sp list --filter "appId eq 'f1dd0a37-89c6-4e07-bcd1-ffd3d43d8875'" --query '[0].id' -o tsv
@@ -64,9 +66,6 @@ az deployment sub create `
     clusterName=aro-sail-dev `
     domain=sail-dev `
     firewallPrivateIpAddress=$env:ARO_FIREWALL_PRIVATE_IP `
-    servicePrincipalClientId=$env:ARO_SP_CLIENT_ID `
-    servicePrincipalObjectId=$env:ARO_SP_OBJECT_ID `
-    servicePrincipalClientSecret=$env:ARO_SP_CLIENT_SECRET `
     aroResourceProviderObjectId=$aroRpObjectId `
     pullSecret=$env:ARO_PULL_SECRET
 ```

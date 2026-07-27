@@ -16,15 +16,11 @@ param masterSubnetId string
 @description('Resource ID of the worker subnet')
 param workerSubnetId string
 
-@description('Application (client) ID of the ARO service principal')
-param servicePrincipalClientId string
+@description('Resource ID of the ARO cluster managed identity')
+param clusterIdentityResourceId string
 
-@description('Object ID of the ARO service principal')
-param servicePrincipalObjectId string
-
-@description('Client secret of the ARO service principal')
-@secure()
-param servicePrincipalClientSecret string
+@description('Resource IDs of the ARO platform workload identities')
+param operatorIdentityResourceIds object
 
 @description('Red Hat pull secret JSON')
 @secure()
@@ -60,28 +56,16 @@ var clusterProfile = union({
   version: openShiftVersion
 })
 
-resource servicePrincipalContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(resourceGroup().id, servicePrincipalObjectId, 'contributor')
-  properties: {
-    principalId: servicePrincipalObjectId
-    principalType: 'ServicePrincipal'
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')
-  }
-}
-
-resource servicePrincipalUserAccessAdministrator 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(resourceGroup().id, servicePrincipalObjectId, 'user-access-administrator')
-  properties: {
-    principalId: servicePrincipalObjectId
-    principalType: 'ServicePrincipal'
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '18d7d88d-d35e-4627-90cd-7e149e0a5d4f')
-  }
-}
-
 resource cluster 'Microsoft.RedHatOpenShift/openShiftClusters@2025-07-25' = {
   name: clusterName
   location: location
   tags: tags
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${clusterIdentityResourceId}': {}
+    }
+  }
   properties: {
     clusterProfile: clusterProfile
     networkProfile: {
@@ -89,9 +73,33 @@ resource cluster 'Microsoft.RedHatOpenShift/openShiftClusters@2025-07-25' = {
       serviceCidr: serviceCidr
       outboundType: 'UserDefinedRouting'
     }
-    servicePrincipalProfile: {
-      clientId: servicePrincipalClientId
-      clientSecret: servicePrincipalClientSecret
+    platformWorkloadIdentityProfile: {
+      platformWorkloadIdentities: {
+        'cloud-controller-manager': {
+          resourceId: operatorIdentityResourceIds.cloudControllerManager
+        }
+        ingress: {
+          resourceId: operatorIdentityResourceIds.ingress
+        }
+        'machine-api': {
+          resourceId: operatorIdentityResourceIds.machineApi
+        }
+        'disk-csi-driver': {
+          resourceId: operatorIdentityResourceIds.diskCsiDriver
+        }
+        'cloud-network-config': {
+          resourceId: operatorIdentityResourceIds.cloudNetworkConfig
+        }
+        'image-registry': {
+          resourceId: operatorIdentityResourceIds.imageRegistry
+        }
+        'file-csi-driver': {
+          resourceId: operatorIdentityResourceIds.fileCsiDriver
+        }
+        'aro-operator': {
+          resourceId: operatorIdentityResourceIds.aroOperator
+        }
+      }
     }
     masterProfile: {
       vmSize: nodeVmSize
@@ -116,10 +124,6 @@ resource cluster 'Microsoft.RedHatOpenShift/openShiftClusters@2025-07-25' = {
       }
     ]
   }
-  dependsOn: [
-    servicePrincipalContributor
-    servicePrincipalUserAccessAdministrator
-  ]
 }
 
 output clusterId string = cluster.id

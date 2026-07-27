@@ -24,16 +24,6 @@ param vnetName string = 'private-vnet'
 @description('Private IP address of the Protected B firewall used for outbound traffic')
 param firewallPrivateIpAddress string
 
-@description('Application (client) ID of the ARO service principal')
-param servicePrincipalClientId string
-
-@description('Object ID of the ARO service principal')
-param servicePrincipalObjectId string
-
-@description('Client secret of the ARO service principal')
-@secure()
-param servicePrincipalClientSecret string
-
 @description('Object ID of the Azure Red Hat OpenShift resource-provider service principal')
 param aroResourceProviderObjectId string
 
@@ -59,13 +49,20 @@ resource clusterResourceGroup 'Microsoft.Resources/resourceGroups@2024-11-01' = 
   tags: tags
 }
 
+module identities './modules/aro/identities.bicep' = {
+  scope: clusterResourceGroup
+  params: {
+    location: location
+  }
+}
+
 module network './modules/aro/network.bicep' = {
   scope: networkResourceGroup
   params: {
     location: location
     vnetName: vnetName
     firewallPrivateIpAddress: firewallPrivateIpAddress
-    servicePrincipalObjectId: servicePrincipalObjectId
+    operatorIdentityPrincipalIds: identities.outputs.operatorIdentityPrincipalIds
     aroResourceProviderObjectId: aroResourceProviderObjectId
     tags: tags
   }
@@ -80,9 +77,8 @@ module cluster './modules/aro/cluster.bicep' = {
     managedResourceGroupId: subscriptionResourceId('Microsoft.Resources/resourceGroups', managedResourceGroupName)
     masterSubnetId: network.outputs.masterSubnetId
     workerSubnetId: network.outputs.workerSubnetId
-    servicePrincipalClientId: servicePrincipalClientId
-    servicePrincipalObjectId: servicePrincipalObjectId
-    servicePrincipalClientSecret: servicePrincipalClientSecret
+    clusterIdentityResourceId: identities.outputs.clusterIdentityResourceId
+    operatorIdentityResourceIds: identities.outputs.operatorIdentityResourceIds
     pullSecret: pullSecret
     openShiftVersion: openShiftVersion
     tags: tags
