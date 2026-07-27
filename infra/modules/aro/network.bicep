@@ -148,7 +148,6 @@ resource firewallPublicIp 'Microsoft.Network/publicIPAddresses@2024-05-01' = {
   tags: tags
   sku: {
     name: 'Standard'
-    tier: 'Regional'
   }
   properties: {
     publicIPAddressVersion: 'IPv4'

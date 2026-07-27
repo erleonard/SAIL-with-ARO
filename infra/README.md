@@ -47,6 +47,27 @@ az provider register --namespace Microsoft.Storage --wait
 az provider register --namespace Microsoft.Authorization --wait
 ```
 
+Azure Firewall public IP creation in some subscriptions also requires the
+following Microsoft.Network feature registration:
+
+```bash
+az feature register \
+  --namespace Microsoft.Network \
+  --name AllowBringYourOwnPublicIpAddress
+
+az feature show \
+  --namespace Microsoft.Network \
+  --name AllowBringYourOwnPublicIpAddress \
+  --query properties.state \
+  --output tsv
+
+az provider register --namespace Microsoft.Network --wait
+```
+
+Wait until the feature state is `Registered` before registering the provider
+and starting the deployment. The deployment script checks this prerequisite
+before creating resources.
+
 Resolve the object ID of the Azure Red Hat OpenShift resource-provider service
 principal, then deploy at subscription scope. The deployment creates Azure
 Firewall with an automatically assigned private IP, the nine user-assigned

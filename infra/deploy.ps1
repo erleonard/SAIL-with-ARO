@@ -97,6 +97,23 @@ function Assert-AroConfiguration {
     }
 }
 
+function Assert-AzureNetworkFeature {
+    $featureName = 'AllowBringYourOwnPublicIpAddress'
+    $featureState = az feature show `
+        --namespace Microsoft.Network `
+        --name $featureName `
+        --query properties.state `
+        --output tsv
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to query Microsoft.Network/$featureName registration state."
+    }
+
+    if ($featureState -ne 'Registered') {
+        throw "Azure Firewall public IP creation requires Microsoft.Network/$featureName to be registered for this subscription. Run 'az feature register --namespace Microsoft.Network --name $featureName', wait for the state to become Registered, then run 'az provider register --namespace Microsoft.Network' and retry the deployment. Current state: $featureState."
+    }
+}
+
 # Main deployment function
 function Start-Deployment {
     Write-Status "Starting ARO landing-zone infrastructure deployment..." "Info"
@@ -130,6 +147,10 @@ function Start-Deployment {
     # Get current subscription
     $currentSub = az account show | ConvertFrom-Json
     Write-Status "Using subscription: $($currentSub.name) ($($currentSub.id))" "Info"
+
+    if ($DeploymentType -eq 'all' -or $DeploymentType -eq 'aro') {
+        Assert-AzureNetworkFeature
+    }
 
     # Create resource groups
     Write-Status "Creating resource groups..." "Info"
