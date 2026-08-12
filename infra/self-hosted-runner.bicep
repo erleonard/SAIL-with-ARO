@@ -43,6 +43,9 @@ param bootstrapScriptBase64 string
 @description('Tags applied to the runner resources')
 param tags object = {}
 
+@description('Value that causes the bootstrap extension to run again on each deployment')
+param bootstrapRunId string = utcNow()
+
 resource existingVnet 'Microsoft.Network/virtualNetworks@2024-05-01' existing = {
   name: vnetName
   scope: resourceGroup(vnetResourceGroupName)
@@ -148,6 +151,7 @@ resource runnerBootstrap 'Microsoft.Compute/virtualMachines/extensions@2024-07-0
   location: location
   properties: {
     autoUpgradeMinorVersion: true
+    forceUpdateTag: bootstrapRunId
     protectedSettings: {
       commandToExecute: '/bin/bash -c "${replace(bootstrapCommand, '"', '\\"')}"'
     }

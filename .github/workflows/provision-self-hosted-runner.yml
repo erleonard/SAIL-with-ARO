@@ -42,7 +42,6 @@ on:
         type: string
 
 permissions:
-  actions: write
   contents: read
   id-token: write
 
@@ -69,7 +68,7 @@ jobs:
       - name: Create runner registration token
         id: runner-token
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.RUNNER_ADMIN_TOKEN }}
         run: |
           set -Eeuo pipefail
           token="$(gh api \

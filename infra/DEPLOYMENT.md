@@ -141,10 +141,14 @@ repository-level self-hosted runner into an existing Azure subnet.
    - `AZURE_CLIENT_ID`
    - `AZURE_TENANT_ID`
    - `AZURE_SUBSCRIPTION_ID`
+6. Add `RUNNER_ADMIN_TOKEN` as a GitHub Environment secret. Use a fine-grained
+   personal access token restricted to this repository with
+   **Administration: Read and write** permission. A GitHub App installation
+   token with the same permission can be used instead.
 
-No GitHub personal access token is needed. The workflow grants its
-`GITHUB_TOKEN` `actions: write` only long enough to request a short-lived
-repository runner registration token.
+The workflow uses `RUNNER_ADMIN_TOKEN` only to request a short-lived repository
+runner registration token. The short-lived token is masked in logs and passed
+to Azure as a secure Bicep parameter.
 
 ### Network prerequisites
 
@@ -152,8 +156,11 @@ The target subnet must:
 
 - Exist before the workflow runs.
 - Have sufficient free addresses.
-- Permit DNS and outbound HTTPS to GitHub, Ubuntu, and Microsoft package
-  endpoints.
+- Permit DNS and outbound HTTPS to `github.com`, `api.github.com`,
+  `*.actions.githubusercontent.com`, `release-assets.githubusercontent.com`,
+  the Ubuntu mirrors configured by the VM image, and
+  `packages.microsoft.com`. Follow GitHub's current
+  [runner communication requirements](https://docs.github.com/en/actions/reference/runners/self-hosted-runners-reference#requirements-for-communication-with-github).
 - Use NAT Gateway, Azure Firewall, or another explicit outbound method.
 
 The template creates a private NIC only and does not modify the customer-owned
@@ -170,6 +177,12 @@ Run **Actions > Provision Azure self-hosted runner > Run workflow** and supply:
 - Existing VNet resource group, VNet name, and subnet name.
 - Comma-separated custom labels. Keep `sail-azure` when workflows rely on that
   label.
+
+Confirm that the selected VM size is available in the region before deployment:
+
+```powershell
+az vm list-skus --location canadaeast --size Standard_D2s_v5 --output table
+```
 
 After the deployment completes, verify that the runner is online under
 **Settings > Actions > Runners**. Jobs can target it with:

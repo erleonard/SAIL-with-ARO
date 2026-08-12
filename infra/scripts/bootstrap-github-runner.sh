@@ -33,7 +33,21 @@ esac
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install --yes ca-certificates curl git jq libicu-dev sudo
+apt-get install --yes ca-certificates curl git gnupg jq libicu-dev sudo
+
+install --directory --mode 0755 /etc/apt/keyrings
+curl --fail --location --retry 5 \
+  'https://packages.microsoft.com/keys/microsoft.asc' |
+  gpg --dearmor --yes --output /etc/apt/keyrings/microsoft.gpg
+
+cat > /etc/apt/sources.list.d/azure-cli.sources <<EOF
+Types: deb
+URIs: https://packages.microsoft.com/repos/azure-cli/
+Suites: noble
+Components: main
+Architectures: $(dpkg --print-architecture)
+Signed-by: /etc/apt/keyrings/microsoft.gpg
+EOF
 
 packages_deb='/tmp/packages-microsoft-prod.deb'
 curl --fail --location --retry 5 \

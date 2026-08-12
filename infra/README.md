@@ -62,9 +62,10 @@ az deployment group create --resource-group <new-rg-name-vnet> --template-file v
 
 The `Provision Azure self-hosted runner` workflow creates one Ubuntu VM in an
 existing VNet and registers it with the `sail-azure` label. The VM has no public
-IP address. Its subnet must provide outbound HTTPS access to GitHub, Ubuntu, and
-Microsoft package endpoints through NAT, Azure Firewall, or another controlled
-egress path.
+IP address. Its subnet must provide outbound HTTPS access to the
+[domains required by GitHub Actions runners](https://docs.github.com/en/actions/reference/runners/self-hosted-runners-reference#requirements-for-communication-with-github),
+Ubuntu mirrors, and `packages.microsoft.com` through NAT, Azure Firewall, or
+another controlled egress path.
 
 The workflow uses Azure OIDC and a short-lived runner registration token. It
 does not store an Azure credential or GitHub personal access token. See
