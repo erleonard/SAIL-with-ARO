@@ -1,0 +1,122 @@
+name: Provision Azure self-hosted runner
+
+on:
+  workflow_dispatch:
+    inputs:
+      location:
+        description: Azure region for the runner VM
+        required: true
+        default: canadaeast
+        type: string
+      resource_group_name:
+        description: Resource group for the runner VM
+        required: true
+        default: rg-sail-runners
+        type: string
+      vm_name:
+        description: Azure VM and GitHub runner name
+        required: true
+        default: sail-github-runner
+        type: string
+      vm_size:
+        description: Azure VM size
+        required: true
+        default: Standard_D2s_v5
+        type: string
+      vnet_resource_group_name:
+        description: Resource group containing the existing VNet
+        required: true
+        type: string
+      vnet_name:
+        description: Existing VNet name
+        required: true
+        type: string
+      subnet_name:
+        description: Existing subnet name
+        required: true
+        type: string
+      runner_labels:
+        description: Comma-separated custom runner labels
+        required: true
+        default: sail-azure
+        type: string
+
+permissions:
+  actions: write
+  contents: read
+  id-token: write
+
+concurrency:
+  group: provision-sail-azure-runner
+  cancel-in-progress: false
+
+jobs:
+  provision:
+    name: Provision runner
+    runs-on: ubuntu-latest
+    environment: runner-provisioning
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Sign in to Azure with OIDC
+        uses: azure/login@f5d393aa5ad8707467f80c9b9b7785236f24ec00 # v3.0.1
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Create runner registration token
+        id: runner-token
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          token="$(
+            curl --fail --silent --show-error --request POST \
+              --header "Accept: application/vnd.github+json" \
+              --header "Authorization: ******" \
+              --header "X-GitHub-Api-Version: 2022-11-28" \
+              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/runners/registration-token" |
+              jq --exit-status --raw-output '.token'
+          )"
+          echo "::add-mask::${token}"
+          echo "token=${token}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy runner VM
+        env:
+          RUNNER_TOKEN: ${{ steps.runner-token.outputs.token }}
+        run: |
+          set -Eeuo pipefail
+
+          az group create \
+            --name '${{ inputs.resource_group_name }}' \
+            --location '${{ inputs.location }}' \
+            --output none
+
+          ssh-keygen \
+            -t ed25519 \
+            -N '' \
+            -f "${RUNNER_TEMP}/runner-admin-key" \
+            -C '${{ inputs.vm_name }}'
+
+          bootstrap_script="$(base64 --wrap=0 infra/scripts/bootstrap-github-runner.sh)"
+
+          az deployment group create \
+            --name "github-runner-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --resource-group '${{ inputs.resource_group_name }}' \
+            --template-file infra/self-hosted-runner.bicep \
+            --parameters \
+              location='${{ inputs.location }}' \
+              vmName='${{ inputs.vm_name }}' \
+              vmSize='${{ inputs.vm_size }}' \
+              vnetResourceGroupName='${{ inputs.vnet_resource_group_name }}' \
+              vnetName='${{ inputs.vnet_name }}' \
+              subnetName='${{ inputs.subnet_name }}' \
+              adminSshPublicKey="$(cat "${RUNNER_TEMP}/runner-admin-key.pub")" \
+              runnerUrl="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+              runnerRegistrationToken="${RUNNER_TOKEN}" \
+              runnerLabels='${{ inputs.runner_labels }}' \
+              bootstrapScriptBase64="${bootstrap_script}" \
+              tags="{\"application\":\"SAIL\",\"component\":\"github-runner\",\"repository\":\"${GITHUB_REPOSITORY}\"}" \
+            --output table
