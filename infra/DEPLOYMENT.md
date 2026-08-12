@@ -122,8 +122,79 @@ az group delete --name rg-sail-dev --yes --no-wait
 az group delete --name rg-sail-network-dev --yes --no-wait
 ```
 
+## Automated GitHub Actions runner
+
+The repository includes an approval-gated workflow that deploys one
+repository-level self-hosted runner into an existing Azure subnet.
+
+### One-time GitHub and Azure setup
+
+1. Create a GitHub Environment named `runner-provisioning`.
+2. Add required reviewers to the environment so deployments require approval.
+3. Create a Microsoft Entra application or user-assigned managed identity with
+   a federated credential for that environment. Use this subject:
+   `repo:erleonard/SAIL-with-ARO:environment:runner-provisioning`.
+4. Grant that identity permission to create the runner resource group and its
+   resources, and permission to join the target subnet. For least privilege,
+   scope the roles to the runner and network resource groups.
+5. Define these GitHub Environment variables:
+   - `AZURE_CLIENT_ID`
+   - `AZURE_TENANT_ID`
+   - `AZURE_SUBSCRIPTION_ID`
+
+No GitHub personal access token is needed. The workflow grants its
+`GITHUB_TOKEN` `actions: write` only long enough to request a short-lived
+repository runner registration token.
+
+### Network prerequisites
+
+The target subnet must:
+
+- Exist before the workflow runs.
+- Have sufficient free addresses.
+- Permit DNS and outbound HTTPS to GitHub, Ubuntu, and Microsoft package
+  endpoints.
+- Use NAT Gateway, Azure Firewall, or another explicit outbound method.
+
+The template creates a private NIC only and does not modify the customer-owned
+VNet, subnet, route table, or NSG. There is no public IP and no inbound access
+rule. The generated SSH key is used only to satisfy Azure VM provisioning and
+is discarded with the hosted workflow job.
+
+### Provision the runner
+
+Run **Actions > Provision Azure self-hosted runner > Run workflow** and supply:
+
+- Azure region and runner resource group.
+- VM name and size.
+- Existing VNet resource group, VNet name, and subnet name.
+- Comma-separated custom labels. Keep `sail-azure` when workflows rely on that
+  label.
+
+After the deployment completes, verify that the runner is online under
+**Settings > Actions > Runners**. Jobs can target it with:
+
+```yaml
+runs-on: [self-hosted, sail-azure]
+```
+
+The bootstrap installs the GitHub Actions runner as a system service together
+with Git, Azure CLI, Bicep, and PowerShell.
+
+### Cleanup
+
+Delete the VM resource group, then remove any offline runner entry under
+**Settings > Actions > Runners**:
+
+```powershell
+az group delete --name rg-sail-runners --yes --no-wait
+```
+
 ## Security Considerations
 
 - Resources are deployed with private endpoints
 - Resources are isolated within the virtual network
 - Key Vault is used for secrets management
+- Runner provisioning uses Azure OIDC rather than a stored Azure credential.
+- The runner VM has a managed identity, automatic platform patching, Trusted
+  Launch, and no public IP address.

@@ -25,6 +25,9 @@ networking controls.
   (optional, for object-storage needs).
 - `deploy.ps1` + `config.json` / `config.prod.json` — deployment orchestration
   and per-environment configuration.
+- `self-hosted-runner.bicep` / `scripts/bootstrap-github-runner.sh` — one
+  private Azure VM registered as a repository-level GitHub Actions runner on an
+  existing customer-managed subnet.
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for usage.
 
@@ -54,3 +57,16 @@ Deploy the virtual network:
 ```bash
 az deployment group create --resource-group <new-rg-name-vnet> --template-file vnet.bicep --parameters vnet.parameters.json
 ```
+
+## Automated self-hosted runner
+
+The `Provision Azure self-hosted runner` workflow creates one Ubuntu VM in an
+existing VNet and registers it with the `sail-azure` label. The VM has no public
+IP address. Its subnet must provide outbound HTTPS access to GitHub, Ubuntu, and
+Microsoft package endpoints through NAT, Azure Firewall, or another controlled
+egress path.
+
+The workflow uses Azure OIDC and a short-lived runner registration token. It
+does not store an Azure credential or GitHub personal access token. See
+[DEPLOYMENT.md](DEPLOYMENT.md#automated-github-actions-runner) for setup,
+operation, and cleanup.

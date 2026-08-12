@@ -47,7 +47,8 @@ The deployment is structured as an ARO landing zone hosting the North platform:
 
 The [`infra`](infra) folder contains the Azure Bicep foundation (virtual network,
 private-endpoint subnet, and reusable Key Vault / container registry / Log
-Analytics / storage modules) along with a PowerShell deployment script. See
+Analytics / storage modules) along with a PowerShell deployment script and an
+OIDC workflow for a private Azure self-hosted GitHub Actions runner. See
 [infra/README.md](infra/README.md) and [infra/DEPLOYMENT.md](infra/DEPLOYMENT.md).
 
 ## Documentation
