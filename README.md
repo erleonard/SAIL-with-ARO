@@ -33,6 +33,11 @@ pattern keeps both data at rest and data in-transit inside Canada.
 
 The deployment is structured as an ARO landing zone hosting the North platform:
 
+![Cohere North on Azure Red Hat OpenShift architecture](docs/aro-cohere-north-architecture.png)
+
+The editable Draw.io source is available at
+[`docs/aro-cohere-north-architecture.drawio`](docs/aro-cohere-north-architecture.drawio).
+
 * **Private ARO cluster** (OpenShift 4.x, Kubernetes v1.30+) provisioned via IaC,
   with isolated node pools for control plane, infrastructure, standard workers,
   a dedicated OpenSearch pool, and a GPU pool for model serving.
@@ -45,38 +50,15 @@ The deployment is structured as an ARO landing zone hosting the North platform:
 
 ## Infrastructure as code
 
-The [`infra`](infra) folder contains the Azure Bicep foundation (virtual network,
-private-endpoint subnet, and reusable Key Vault / container registry / Log
-Analytics / storage modules) along with a PowerShell deployment script. See
-[infra/README.md](infra/README.md) and [infra/DEPLOYMENT.md](infra/DEPLOYMENT.md).
+> [!IMPORTANT]
+> The deployment environment must have direct network access to the virtual
+> network (VNet). If direct access is not available, run the deployment from a
+> self-hosted runner that has connectivity to the VNet; otherwise, the
+> deployment will not succeed.
 
-## Development environment
-
-[`devfile.yaml`](devfile.yaml) defines an OpenShift Dev Spaces workspace with the
-tooling needed to work on the templates: the Bicep CLI, Azure CLI, and
-PowerShell 7. The tools install into a persistent volume on workspace start
-(the `install-tooling` command runs automatically as a `postStart` event).
-
-### Running the devfile commands
-
-The devfile commands are exposed as tasks in the Dev Spaces editor:
-
-1. Press `Ctrl+Shift+P` (`Cmd+Shift+P` on macOS) to open the command palette.
-2. Run **Tasks: Run Task**.
-3. Choose the **devfile** category.
-4. Select the task you want to run.
-
-The task output opens in a terminal panel in the editor.
-
-Available tasks:
-
-| Task | What it does |
-| --- | --- |
-| Install Bicep, Azure CLI and PowerShell | Installs the pinned tool versions into the persistent volume. Idempotent, and already run on workspace start. |
-| Build all Bicep templates | Compiles every template under `infra/`; reports compile errors and linter warnings. |
-| Lint all Bicep templates | Runs the Bicep linter only. |
-| Log in to Azure (device code) | `az login --use-device-code` for the Azure CLI in the workspace. |
-| What-if the ARO deployment (requires az login) | Runs a subscription-scope what-if against `aro.bicep` without creating anything. Needs `infra/whatif.parameters.json` (including the pull secret). |
+The [`infra`](infra) folder contains the independent hub deployment and the
+spoke/ARO Azure Bicep foundation. See [infra/README.md](infra/README.md) and
+[infra/DEPLOYMENT.md](infra/DEPLOYMENT.md).
 
 ## Documentation
 

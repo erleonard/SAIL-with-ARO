@@ -1,0 +1,72 @@
+name: Deploy ARO with native Azure CLI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-aro-native
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy ARO using native Azure CLI
+    runs-on: self-hosted
+    timeout-minutes: 360
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Sign in to Azure with managed identity
+        uses: azure/login@v3
+        with:
+          auth-type: IDENTITY
+          client-id: ${{ secrets.AZURE_MI_CLIENT_ID }}   # omit if VM has only one identity
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+
+      - name: Register required Azure resource providers
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $providers = @(
+            'Microsoft.RedHatOpenShift'
+            'Microsoft.Compute'
+            'Microsoft.Storage'
+            'Microsoft.Authorization'
+          )
+
+          foreach ($provider in $providers) {
+            az provider register --namespace $provider
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to register Azure resource provider '$provider'."
+            }
+          }
+
+      - name: Start ARO deployment
+        shell: pwsh
+        env:
+          ARO_PULL_SECRET: ${{ secrets.ARO_PULL_SECRET }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          DEPLOYMENT_NAME: aro-deployment-${{ github.run_id }}
+          DEPLOYMENT_LOCATION: swedencentral
+        run: |
+          az deployment sub create `
+            --name $env:DEPLOYMENT_NAME `
+            --subscription $env:AZURE_SUBSCRIPTION_ID `
+            --template-file ./infra/aro/main.bicep `
+            --parameters ./infra/aro/main.bicepparam deploymentType=all `
+            --location $env:DEPLOYMENT_LOCATION `
+            --no-prompt `
+            --output none
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to start deployment '$env:DEPLOYMENT_NAME'."
+          }
+
+          "### Azure deployment" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          "Deployment ``$env:DEPLOYMENT_NAME`` was submitted with ``--no-prompt``." |
+            Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8

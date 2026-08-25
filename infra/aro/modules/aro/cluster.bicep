@@ -41,7 +41,7 @@ param workerDiskSizeGB int = 200
 
 @description('Number of standard worker nodes')
 @minValue(3)
-param workerCount int = 9
+param workerCount int = 3
 
 @description('Tags applied to the ARO cluster')
 param tags object = {}

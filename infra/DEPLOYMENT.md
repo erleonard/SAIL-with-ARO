@@ -1,187 +1,377 @@
 # ARO Landing-Zone Infrastructure Deployment Guide
 
-This guide covers deploying the shared network foundation and ARO cluster that
-hosts Cohere North, using the PowerShell deployment script. Managed dependencies
-(Azure Database for PostgreSQL, Azure Cache for Redis, and Key Vault) remain
-separate templates.
+This guide covers deploying the independent hub network, ARO spoke network, and
+private Azure Red Hat OpenShift (ARO) cluster that hosts Cohere North. The
+deployment uses Bicep parameter files and subscription-scope Azure CLI
+deployments.
+
+Managed application dependencies such as PostgreSQL and Redis are external to
+these templates.
+
+## Deployment layout
+
+- `hub/main.bicep` and `hub/main.bicepparam` deploy the hub resource group, VNet,
+  Azure Firewall, public IP, Firewall Policy, and egress rules.
+- `aro/main.bicep` and `aro/main.bicepparam` deploy the spoke network, hub/spoke
+  peering, ARO identities and RBAC, and the ARO cluster.
+- `aro/aro.bicep` composes the cluster-specific identity, role-assignment, and
+  cluster modules.
+
+The hub is always a separate Azure deployment. The ARO deployment consumes the
+hub VNet resource ID and firewall or network virtual appliance private IP.
 
 ## Prerequisites
 
-1. **Azure CLI**: Install from [https://docs.microsoft.com/cli/azure/install-azure-cli](https://docs.microsoft.com/cli/azure/install-azure-cli)
-2. **PowerShell**: Version 7.0 or later recommended
-3. **Azure Subscription**: Active Azure subscription with appropriate permissions
-4. **Login to Azure**: Run `az login` before deployment
-5. **Red Hat pull secret**: A pull secret from the Red Hat Hybrid Cloud Console
+1. Azure CLI with Bicep support.
+2. PowerShell 7 or another shell capable of setting environment variables.
+3. An Azure subscription with permission to create resource groups, networking,
+   ARO resources, managed identities, and role assignments.
+4. A Red Hat pull secret from the Red Hat Hybrid Cloud Console.
+5. A deployment host with network access to the private ARO environment for
+   post-deployment OpenShift configuration.
+6. The OpenShift CLI (`oc`) for cluster administration.
 
-## Quick Start
-
-### 1. Login to Azure
+Sign in and select the target subscription:
 
 ```powershell
 az login
+$subscriptionId = az account show --query id --output tsv
 ```
 
-### 2. Configure Your Deployment
+Register the required Azure resource providers:
 
-Edit the `config.json` file with your specific values:
+```powershell
+$providers = @(
+  'Microsoft.Network'
+  'Microsoft.RedHatOpenShift'
+  'Microsoft.Compute'
+  'Microsoft.Storage'
+  'Microsoft.Authorization'
+)
 
-```json
-{
-  "location": "canadaeast",
-  "resourceGroup": "rg-sail-dev",
-  "vnetResourceGroup": "rg-sail-network-dev",
-   "managedResourceGroupName": "aro-sail-dev-canadaeast",
-   "clusterName": "aro-sail-dev",
-   "domain": "sail-dev",
-  "vnetName": "private-vnet",
-  "subnetName": "pe-subnet",
-  "createPrivateDnsZones": false
+foreach ($provider in $providers) {
+  az provider register --namespace $provider --wait
 }
 ```
 
-### 3. Set protected inputs
+## Configure deployment parameters
+
+Edit `hub/main.bicepparam` for the hub deployment:
+
+- Azure region and hub resource group
+- Hub VNet name and address prefix
+- Azure Firewall subnet and resource names
+- ARO spoke address prefix allowed by the Firewall Policy
+
+Edit `aro/main.bicepparam` for the spoke and ARO deployment:
+
+- Hub subscription, resource group, VNet name, and next-hop private IP
+- Spoke VNet, subnet, and route-table settings
+- ARO resource group, managed resource group, cluster name, and domain
+- ARO resource-provider service-principal object ID
+- Optional OpenShift version
+
+`hubVnetResourceId` may be left empty when the hub is in the configured
+subscription and resource group. The template derives the resource ID from
+`hubSubscriptionId`, `hubResourceGroupName`, and `hubVnetName`.
+
+Set the protected Red Hat pull secret without writing it to a parameter file:
 
 ```powershell
-$env:ARO_PULL_SECRET = Get-Content .\pull-secret.txt -Raw
+$env:ARO_PULL_SECRET = Get-Content ./pull-secret.txt -Raw
 ```
 
-### 4. Deploy
+## Deploy the hub
+
+Run these commands from the `infra` directory.
+
+Preview the independent hub deployment:
 
 ```powershell
-.\deploy.ps1
+az deployment sub what-if `
+  --name sail-hub-preview `
+  --location swedencentral `
+  --subscription $subscriptionId `
+  --template-file ./hub/main.bicep `
+  --parameters ./hub/main.bicepparam
 ```
 
-This will deploy:
-- Virtual Network with a private-endpoint subnet
-- ARO network with a provisioned Azure Firewall, firewall routing, and private
-   control-plane/worker subnets
-- Nine user-assigned managed identities and their required role assignments
-- Private ARO cluster
-
-## Advanced Usage
-
-### Deploy the private ARO cluster
-
-Use the `aro` deployment type to deploy the ARO network and cluster without
-running the legacy private-endpoint VNet deployment. The script resolves the ARO
-resource-provider identity automatically.
+Create the hub deployment:
 
 ```powershell
-.\deploy.ps1 -DeploymentType aro
+az deployment sub create `
+  --name sail-hub `
+  --location swedencentral `
+  --subscription $subscriptionId `
+  --template-file ./hub/main.bicep `
+  --parameters ./hub/main.bicepparam
 ```
 
-The deployment standardizes the control-plane and initial worker nodes on
-`Standard_D8s_v5`. Create the infra pool afterward as an OpenShift `MachineSet`
-with three `Standard_D8s_v5` nodes.
+The deployment outputs the hub VNet resource ID and Azure Firewall private IP.
+Ensure the corresponding values in `aro/main.bicepparam` are correct before
+deploying the spoke.
 
-### Deploy only the VNet
+## Deploy the spoke and ARO cluster
+
+For a new environment, use the `all` stage to deploy the spoke, peering, and ARO
+cluster:
 
 ```powershell
-.\deploy.ps1 -DeploymentType vnet
+az deployment sub what-if `
+  --name sail-aro-preview `
+  --location swedencentral `
+  --subscription $subscriptionId `
+  --template-file ./aro/main.bicep `
+  --parameters ./aro/main.bicepparam deploymentType=all
 ```
-
-### Use Different Configuration Files
 
 ```powershell
-.\deploy.ps1 -ConfigFile .\config.prod.json
+az deployment sub create `
+  --name sail-aro `
+  --location swedencentral `
+  --subscription $subscriptionId `
+  --template-file ./aro/main.bicep `
+  --parameters ./aro/main.bicepparam deploymentType=all
 ```
 
-### Specify Subscription
+### Deploy only the spoke
+
+The hub must already exist and the deployment identity must be able to create
+peering on the hub VNet.
 
 ```powershell
-.\deploy.ps1 -SubscriptionId "your-subscription-id"
+az deployment sub create `
+  --name sail-spoke `
+  --location swedencentral `
+  --subscription $subscriptionId `
+  --template-file ./aro/main.bicep `
+  --parameters ./aro/main.bicepparam deploymentType=spoke
 ```
 
-### Skip the legacy VNet deployment
+### Deploy ARO on an existing spoke
+
+The spoke VNet, subnets, route table, and both peerings must already exist.
 
 ```powershell
-.\deploy.ps1 -SkipVNetDeployment
+az deployment sub create `
+  --name sail-aro `
+  --location swedencentral `
+  --subscription $subscriptionId `
+  --template-file ./aro/main.bicep `
+  --parameters ./aro/main.bicepparam deploymentType=aro
 ```
 
-With `-DeploymentType all`, this flag skips `vnet.bicep` but still deploys the
-ARO network and cluster through `aro.bicep`.
+The deployment creates a private ARO cluster with user-defined routing and
+standardizes the control-plane and initial worker nodes on `Standard_D8s_v5`.
+Create additional infra, OpenSearch, and GPU machine pools after cluster
+provisioning.
 
-## Configuration Files
+### Deploy the infrastructure MachineSet
 
-- **config.json** — development configuration.
-- **config.prod.json** — production configuration template.
-- **vnet.parameters.json** — static parameters for VNet deployment.
+The `aro/machinesets/infra-machineset.yaml` manifest defines three
+`Standard_D8s_v5` infrastructure nodes in availability zone 1. Before applying
+it, retrieve an ARO-generated worker MachineSet and replace every
+`REPLACE_*` value with the matching cluster-generated value:
 
-## Deployment Architecture
+```powershell
+oc get machinesets --namespace openshift-machine-api
+oc get machineset <existing-worker-machineset> `
+  --namespace openshift-machine-api `
+  --output yaml
+oc get infrastructure cluster `
+  --output jsonpath='{.status.infrastructureName}'
+```
 
-The script deploys resources in the following order:
+Copy any provider-specific fields present in the generated worker MachineSet,
+including image, load-balancer, identity, security, and disk settings, into the
+infrastructure manifest. These values vary with the ARO and OpenShift version.
 
-1. **Resource Groups**
-   - VNet resource group (e.g., `rg-sail-network-dev`)
-   - Main resource group (e.g., `rg-sail-dev`)
+Apply and verify the MachineSet:
 
-2. **Virtual Network** (unless skipped)
-   - Private virtual network (192.168.0.0/16)
-   - Private endpoint subnet (192.168.0.0/24)
+```powershell
+oc apply --filename ./aro/machinesets/infra-machineset.yaml
+oc get machinesets --namespace openshift-machine-api
+oc get machines --namespace openshift-machine-api
+oc get nodes --label node-role.kubernetes.io/infra
+```
 
-3. **ARO network, identities, and cluster** (`all` or `aro`)
-   - Azure Firewall with an automatically assigned private IP
-   - Firewall UDR and private ARO subnets
-   - Nine user-assigned managed identities with operator-specific RBAC
-   - Private ARO cluster
+The manifest adds a `NoSchedule` taint. Configure the required infrastructure
+workloads with the corresponding toleration before relying on these nodes.
 
-Azure Firewall denies arbitrary internet egress by default. ARO egress lockdown
-proxies the endpoints required for cluster operation. Add explicit firewall
-rules for optional external registries or application destinations as needed.
+## Use an existing hub VNet
+
+Set the following values in `aro/main.bicepparam`:
+
+- `hubSubscriptionId`: subscription containing the hub VNet
+- `hubResourceGroupName`: resource group containing the hub VNet
+- `hubVnetName`: hub VNet name
+- `hubVnetResourceId`: full resource ID, or empty to derive it from the preceding
+  values
+- `hubNextHopIpAddress`: private IP of the existing firewall or network virtual
+  appliance
+
+The hub may be in another subscription in the same Microsoft Entra tenant. The
+deployment identity must be able to create the hub-side peering. An externally
+managed hub must provide equivalent firewall rules for mandatory ARO and Red Hat
+endpoints.
+
+## GitHub Actions deployment
+
+The repository provides separate manually triggered workflows:
+
+1. `Deploy Hub network` deploys `infra/hub/main.bicep` and its parameter file.
+2. `Deploy Spoke network` deploys the `spoke` stage from
+   `infra/aro/main.bicepparam`.
+3. `Deploy ARO with native Azure CLI` deploys the ARO entry point from a
+   self-hosted runner using managed identity.
+4. `Configure ARO integration (Native)` configures Microsoft Entra
+   authentication from a connected self-hosted runner.
+
+Configure the repository or organization secrets required by the selected
+workflows:
+
+- `AZURE_CLIENT_ID`: application/client ID used by OIDC workflows
+- `AZURE_MI_CLIENT_ID`: user-assigned managed identity client ID used by the ARO
+  deployment workflow
+- `AZURE_TENANT_ID`: Microsoft Entra tenant ID
+- `AZURE_SUBSCRIPTION_ID`: target Azure subscription ID
+- `ARO_PULL_SECRET`: complete Red Hat pull-secret JSON
+
+The deployment identities require permission to register providers, create role
+assignments, and manage networking at the scopes used by the templates.
+
+## Deployment architecture
+
+Deploy resources in this order:
+
+1. **Hub**
+   - Hub VNet and `AzureFirewallSubnet`
+   - Standard Azure Firewall, public IP, and Firewall Policy
+2. **Spoke**
+   - ARO spoke VNet
+   - Control-plane, worker, and private-endpoint subnets
+   - Bidirectional peering and `0.0.0.0/0` route to the hub next hop
+3. **ARO**
+   - User-assigned managed identities and network role assignments
+   - Private API and ingress with `UserDefinedRouting`
+4. **Microsoft Entra authentication**
+   - Separate operation from a host that can reach the private cluster
+
+## Microsoft Entra authentication
+
+Run the `Configure ARO integration (Native)` workflow after the ARO deployment
+completes. The workflow reads the resource group and cluster name from
+`infra/aro/main.bicepparam`, then:
+
+- Retrieves an isolated temporary admin kubeconfig.
+- Discovers the exact OAuth callback URL from the cluster.
+- Creates or updates a single-tenant Microsoft Entra application.
+- Adds the required ID-token claims and delegated Microsoft Graph permission.
+- Creates the enterprise application when needed.
+- Creates or updates the OpenShift OAuth client Secret.
+- Reconciles the `entraID` provider in `OAuth/cluster`.
+- Waits for the OpenShift authentication operator to become available.
+- Removes the temporary kubeconfig and transient secret value.
+
+The runner must have Azure CLI, `jq`, and `oc`, and must be able to resolve and
+reach the private ARO API and ingress endpoints.
+
+After the workflow succeeds, open the private console, select `entraID`, and
+verify authentication and authorization:
+
+```powershell
+oc login --token '<token>' --server '<api-server-url>'
+oc whoami
+oc auth can-i --list
+```
+
+Authentication does not grant application or administrative access. Add
+least-privilege project `RoleBinding` or cluster `ClusterRoleBinding` resources
+separately. Keep `kubeadmin` until at least one Entra-authenticated administrator
+path has been tested.
 
 ## Troubleshooting
 
-### Azure CLI Not Found
-```powershell
-az version
-```
+### Authentication errors
 
-### Authentication Errors
 ```powershell
 az login
 az account show
 az account list --output table
 ```
 
-### Resource Group Already Exists
-The script will use existing resource groups if they already exist. This is by design.
+### Failed ARO cluster creation
 
-### Failed ARO Cluster Creation
-
-Microsoft does not support retrying a failed ARO cluster creation in place. The
-deployment script detects this state before creating resources. Delete only the
-failed cluster and its ARO-managed objects, then rerun the deployment:
+Microsoft does not support retrying a failed ARO cluster creation in place.
+Delete the failed cluster, wait for deletion to complete, and rerun the ARO
+deployment:
 
 ```powershell
 az aro delete `
-   --resource-group rg-sail-dev `
-   --name aro-sail-dev `
-   --yes
+  --resource-group sail-rg `
+  --name aro-sail `
+  --yes
 
-.\deploy.ps1 -ConfigFile .\config.json -DeploymentType aro
+az deployment sub create `
+  --name sail-aro-retry `
+  --location swedencentral `
+  --subscription $subscriptionId `
+  --template-file ./aro/main.bicep `
+  --parameters ./aro/main.bicepparam deploymentType=aro
 ```
 
-The shared network, Azure Firewall, managed identities, and their role
-assignments are retained.
+The hub, spoke, managed identities, and role assignments remain in place.
 
-### VNet Already Exists
-Use the `-SkipVNetDeployment` flag to skip VNet creation.
+### Permission errors
 
-### Permission Errors
-Ensure your Azure account has:
-- Contributor and User Access Administrator roles, or Owner, on the subscription
-- Permissions to create resource groups
-- Permissions to query the ARO resource-provider enterprise application
+Ensure the deployment identity has:
+
+- Permission to create resource groups and subscription deployments
+- Contributor and User Access Administrator roles, or Owner, at the required
+  scopes
+- Permission to query the ARO resource-provider enterprise application
+- Permission to create both sides of the hub/spoke peering
+
+### Microsoft Entra redirect URI mismatch
+
+Rerun the `Configure ARO integration (Native)` workflow. It discovers the
+callback URL from the cluster route. Confirm the URL reported by the workflow
+matches the web redirect URI configured on the Entra application.
+
+### ARO API connection timeout
+
+Run checks from a host connected to the hub or spoke. Confirm private DNS
+resolution, TCP 6443 reachability, connected peering, and the route to the hub
+next hop:
+
+```powershell
+Resolve-DnsName api.<domain>.<region>.aroapp.io
+Test-NetConnection api.<domain>.<region>.aroapp.io -Port 6443
+az network route-table route list `
+  --resource-group <network-resource-group> `
+  --route-table-name aro-route-table `
+  --output table
+```
 
 ## Cleanup
 
+Delete the ARO and hub resource groups only after confirming they do not contain
+shared resources:
+
 ```powershell
-az group delete --name rg-sail-dev --yes --no-wait
-az group delete --name rg-sail-network-dev --yes --no-wait
+az group delete --name sail-rg --yes --no-wait
+az group delete --name sail-hub-rg --yes --no-wait
 ```
 
-## Security Considerations
+## Security considerations
 
-- Resources are deployed with private endpoints
-- Resources are isolated within the virtual network
-- Key Vault is used for secrets management
+- The ARO API and ingress are private.
+- Both ARO subnets use user-defined routing through the hub firewall or network
+  virtual appliance.
+- The Red Hat pull secret is passed through a protected environment variable.
+- Microsoft Entra client secrets are generated transiently and stored only in
+  the OpenShift Secret.
+- Deployment identities should use least-privilege role assignments at the
+  narrowest practical scope.
+- Microsoft Entra authentication and OpenShift RBAC authorization are managed
+  separately.

@@ -1,0 +1,11 @@
+using './main.bicep'
+
+param location = 'swedencentral'
+param resourceGroupName = 'sail-hub-rg'
+param vnetName = 'sail-hub-vnet'
+param addressPrefix = '10.0.0.0/16'
+param firewallSubnetPrefix = '10.0.0.0/26'
+param firewallName = 'sail-hub-firewall'
+param firewallPublicIpName = 'sail-hub-firewall-pip'
+param firewallPolicyName = 'sail-hub-firewall-policy'
+param spokeAddressPrefix = '10.1.0.0/16'

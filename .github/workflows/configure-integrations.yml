@@ -1,0 +1,208 @@
+name: Configure ARO integration (Native)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: configure-entra
+  cancel-in-progress: false
+
+jobs:
+  configure-entra:
+    name: Configure Microsoft Entra integration
+    runs-on: self-hosted
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Sign in to Azure with fresh OIDC credentials
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Install OpenShift CLI
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          if (Get-Command oc -ErrorAction SilentlyContinue) {
+            Write-Host 'OpenShift CLI (oc) is already installed.'
+            oc version --client
+            return
+          }
+
+          $ocUrl = 'https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz'
+          $ocDir = Join-Path $env:RUNNER_TEMP 'oc-cli'
+          $archive = Join-Path $ocDir 'oc.tar.gz'
+          New-Item -ItemType Directory -Path $ocDir -Force | Out-Null
+
+          Invoke-WebRequest -Uri $ocUrl -OutFile $archive
+          tar -xzf $archive -C $ocDir oc
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Failed to extract the OpenShift CLI archive.'
+          }
+
+          $ocDir | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          & (Join-Path $ocDir 'oc') version --client
+
+      - name: Configure Microsoft Entra authentication
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          parameters=$(az bicep build-params \
+            --file ./infra/aro/main.bicepparam \
+            --stdout \
+            --only-show-errors |
+            jq -c '.parametersJson | fromjson | .parameters')
+          resource_group=$(jq -er '.clusterResourceGroupName.value' <<< "$parameters")
+          cluster_name=$(jq -er '.clusterName.value' <<< "$parameters")
+
+          identity_provider_name='entraID'
+          client_secret_name='openid-client-secret-azuread'
+          tenant_id=$(az account show --query tenantId --output tsv)
+          app_name="${cluster_name}-openshift-auth"
+          kubeconfig="${RUNNER_TEMP}/aro-kubeconfig-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          trap 'rm -f "$kubeconfig"; unset client_secret' EXIT
+
+          az aro get-admin-kubeconfig \
+            --resource-group "$resource_group" \
+            --name "$cluster_name" \
+            --file "$kubeconfig" \
+            --output none
+
+          kube_cluster=$(oc --kubeconfig "$kubeconfig" config view \
+            --output 'jsonpath={.clusters[0].name}')
+          oc --kubeconfig "$kubeconfig" config set-cluster "$kube_cluster" \
+            --insecure-skip-tls-verify=true >/dev/null
+
+          oauth_host=$(oc --kubeconfig "$kubeconfig" get route oauth-openshift \
+            --namespace openshift-authentication \
+            --output 'jsonpath={.spec.host}')
+          callback_url="https://${oauth_host}/oauth2callback/${identity_provider_name}"
+
+          app_ids_output=$(az ad app list \
+            --display-name "$app_name" \
+            --query '[].appId' \
+            --output tsv)
+          mapfile -t app_ids < <(printf '%s' "$app_ids_output")
+          if (( ${#app_ids[@]} > 1 )); then
+            echo "::error::More than one Entra application is named '$app_name'."
+            exit 1
+          fi
+
+          app_created=false
+          if (( ${#app_ids[@]} == 0 )); then
+            app_id=$(az ad app create \
+              --display-name "$app_name" \
+              --sign-in-audience AzureADMyOrg \
+              --web-redirect-uris "$callback_url" \
+              --query appId \
+              --output tsv)
+            app_created=true
+          else
+            app_id="${app_ids[0]}"
+          fi
+
+          app=$(az ad app show --id "$app_id" --output json)
+          if [[ $(jq -r '.signInAudience' <<< "$app") != 'AzureADMyOrg' ]]; then
+            echo "::error::Entra application '$app_id' must be single-tenant."
+            exit 1
+          fi
+
+          az ad app update \
+            --id "$app_id" \
+            --web-redirect-uris "$callback_url" \
+            --optional-claims '{"idToken":[{"name":"email","source":null,"essential":false,"additionalProperties":[]},{"name":"upn","source":null,"essential":false,"additionalProperties":[]}]}' \
+            --output none
+
+          if ! jq -e '
+            any(.requiredResourceAccess[]?;
+              .resourceAppId == "00000003-0000-0000-c000-000000000000" and
+              any(.resourceAccess[]?; .id == "e1fe6dd8-ba31-4d61-89e7-88639da4683d"))
+          ' <<< "$app" >/dev/null; then
+            az ad app permission add \
+              --id "$app_id" \
+              --api 00000003-0000-0000-c000-000000000000 \
+              --api-permissions e1fe6dd8-ba31-4d61-89e7-88639da4683d=Scope \
+              --output none
+          fi
+
+          service_principal_id=$(az ad sp list \
+            --filter "appId eq '$app_id'" \
+            --query '[0].id' \
+            --output tsv)
+          if [[ -z "$service_principal_id" ]]; then
+            az ad sp create --id "$app_id" --output none
+          fi
+
+          if [[ "$app_created" == true ]] ||
+            ! oc --kubeconfig "$kubeconfig" get secret "$client_secret_name" \
+              --namespace openshift-config >/dev/null 2>&1; then
+            client_secret=$(az ad app credential reset \
+              --id "$app_id" \
+              --append \
+              --display-name 'ARO OpenShift OAuth' \
+              --years 1 \
+              --query password \
+              --output tsv)
+            oc --kubeconfig "$kubeconfig" create secret generic "$client_secret_name" \
+              --namespace openshift-config \
+              --from-literal=clientSecret="$client_secret" \
+              --dry-run=client \
+              --output yaml |
+              oc --kubeconfig "$kubeconfig" apply -f -
+            unset client_secret
+          fi
+
+          identity_provider=$(jq -n \
+            --arg name "$identity_provider_name" \
+            --arg app_id "$app_id" \
+            --arg secret_name "$client_secret_name" \
+            --arg issuer "https://login.microsoftonline.com/$tenant_id" \
+            '{
+              name: $name,
+              mappingMethod: "claim",
+              type: "OpenID",
+              openID: {
+                clientID: $app_id,
+                clientSecret: {name: $secret_name},
+                extraScopes: ["email", "profile"],
+                claims: {
+                  preferredUsername: ["email", "upn"],
+                  name: ["name"],
+                  email: ["email"]
+                },
+                issuer: $issuer
+              }
+            }')
+
+          oc --kubeconfig "$kubeconfig" get oauth cluster --output json |
+            jq --argjson provider "$identity_provider" '
+              .spec.identityProviders = (
+                ((.spec.identityProviders // []) |
+                  map(select(.name != $provider.name))) + [$provider]
+              ) |
+              {
+                apiVersion,
+                kind,
+                metadata: {name: .metadata.name},
+                spec
+              }
+            ' |
+            oc --kubeconfig "$kubeconfig" apply -f -
+
+          oc --kubeconfig "$kubeconfig" wait clusteroperator/authentication \
+            --for=condition=Available=True \
+            --timeout=10m
+
+          echo "Microsoft Entra authentication configured for '$cluster_name'."
+          echo "OAuth callback URL: $callback_url"

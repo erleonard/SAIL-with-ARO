@@ -1,0 +1,56 @@
+name: Deploy Spoke network
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-aro-spoke
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy Spoke using aro/main.bicepparam
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Sign in to Azure with OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Register Microsoft.Network resource provider
+        shell: pwsh
+        run: |
+          az provider register --namespace Microsoft.Network --wait
+          if ($LASTEXITCODE -ne 0) {
+            throw "Failed to register the 'Microsoft.Network' resource provider."
+          }
+
+      - name: Deploy Spoke network and associated components
+        shell: pwsh
+        env:
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          az deployment sub create `
+            --name $env:DEPLOYMENT_NAME `
+            --location swedencentral `
+            --subscription $env:AZURE_SUBSCRIPTION_ID `
+            --parameters ./infra/aro/main.bicepparam deploymentType=spoke `
+            --no-prompt `
+            --output none
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Spoke deployment failed.'
+          }
+
+          "Spoke deployment ``$env:DEPLOYMENT_NAME`` completed using ``infra/aro/main.bicepparam``." |
+            Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
