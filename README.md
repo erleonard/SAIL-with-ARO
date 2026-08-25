@@ -50,6 +50,18 @@ private-endpoint subnet, and reusable Key Vault / container registry / Log
 Analytics / storage modules) along with a PowerShell deployment script. See
 [infra/README.md](infra/README.md) and [infra/DEPLOYMENT.md](infra/DEPLOYMENT.md).
 
+## Development environment
+
+[`devfile.yaml`](devfile.yaml) defines an OpenShift Dev Spaces workspace with the
+tooling needed to work on the templates: the Bicep CLI, Azure CLI, and
+PowerShell 7. The tools install into a persistent volume on workspace start.
+Useful tasks (run from the Dev Spaces command palette or `Terminal → Run Task`):
+
+* `bicep-build` — compile every template under `infra/`; reports compile errors
+  and linter warnings.
+* `bicep-lint` — linter only.
+* `az-login` / `aro-whatif` — Azure sign-in and a what-if against `aro.bicep`.
+
 ## Documentation
 
 * [`docs/`](docs) — Cohere North deployment reference material used to plan the
