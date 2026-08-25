@@ -11,6 +11,14 @@ networking controls.
 
 ## Current contents
 
+- `aro.bicep` — subscription-scope entry point that creates the network and
+  cluster resource groups and composes the ARO modules.
+- `modules/aro/network.bicep` — ARO virtual network, Azure Firewall with an
+  automatically assigned private IP, dedicated control-plane and worker
+  subnets, private-endpoint subnet, firewall UDR, and required VNet role
+  assignments.
+- `modules/aro/cluster.bicep` — private ARO cluster with FIPS enabled, three
+  `Standard_D8s_v5` control-plane nodes and nine `Standard_D8s_v5` workers.
 - `vnet.bicep` / `vnet.parameters.json` — virtual network (192.168.0.0/16) with a
   private-endpoint subnet (`pe-subnet`) used by managed dependencies (PostgreSQL,
   Redis, Key Vault). ARO master/worker subnets, route tables/UDRs and NSGs are
@@ -27,6 +35,71 @@ networking controls.
   and per-environment configuration.
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for usage.
+
+## ARO deployment
+
+Register the required providers before the first deployment:
+
+```bash
+az provider register --namespace Microsoft.RedHatOpenShift --wait
+az provider register --namespace Microsoft.Compute --wait
+az provider register --namespace Microsoft.Storage --wait
+az provider register --namespace Microsoft.Authorization --wait
+```
+
+Resolve the object ID of the Azure Red Hat OpenShift resource-provider service
+principal, then deploy at subscription scope. The deployment creates Azure
+Firewall with an automatically assigned private IP, the nine user-assigned
+managed identities required by ARO, and each identity's operator-specific role.
+Pass the Red Hat pull secret from a protected environment variable so it is not
+stored in source files or shell history.
+
+The deployment script runs this template when `DeploymentType` is `all` or
+`aro`:
+
+```powershell
+$env:ARO_PULL_SECRET = Get-Content .\pull-secret.txt -Raw
+.\deploy.ps1 -ConfigFile .\config.json -DeploymentType all
+```
+
+For a manual deployment, use the equivalent command below.
+
+```powershell
+$aroRpObjectId = az ad sp list --filter "appId eq 'f1dd0a37-89c6-4e07-bcd1-ffd3d43d8875'" --query '[0].id' -o tsv
+
+az deployment sub create `
+  --location canadaeast `
+  --template-file aro.bicep `
+  --parameters `
+    location=canadaeast `
+    clusterResourceGroupName=rg-sail-dev `
+    networkResourceGroupName=rg-sail-network-dev `
+    managedResourceGroupName=aro-sail-dev-canadaeast `
+    clusterName=aro-sail-dev `
+    domain=sail-dev `
+    aroResourceProviderObjectId=$aroRpObjectId `
+    pullSecret=$env:ARO_PULL_SECRET
+```
+
+The Azure ARO resource creates only the control plane and initial worker pool.
+Create the three-node infra pool after cluster provisioning as an OpenShift
+`MachineSet`, using the `infraMachineSetVmSize` output (`Standard_D8s_v5`). GPU
+and OpenSearch pools remain separate post-provisioning work.
+
+If cluster creation fails, delete the failed ARO cluster before retrying. ARO
+does not support retrying failed cluster creation in place:
+
+```powershell
+az aro delete --resource-group rg-sail-dev --name aro-sail-dev --yes
+.\deploy.ps1 -ConfigFile .\config.json -DeploymentType aro
+```
+
+The deployment script detects `Failed` and `Deleting` cluster states before
+starting another deployment.
+
+Azure Firewall denies arbitrary internet egress by default. ARO egress lockdown
+proxies the endpoints required for cluster operation. Add explicit firewall
+rules for optional external registries or application destinations as needed.
 
 ### Private DNS Zone Control
 

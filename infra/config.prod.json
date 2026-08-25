@@ -5,6 +5,9 @@
   "location": "canadaeast",
   "resourceGroup": "rg-sail-prod",
   "vnetResourceGroup": "rg-sail-network-prod",
+  "managedResourceGroupName": "aro-sail-prod-canadaeast",
+  "clusterName": "aro-sail-prod",
+  "domain": "sail-prod",
   
   "vnetName": "private-vnet",
   "subnetName": "pe-subnet",

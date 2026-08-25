@@ -418,3 +418,12 @@ FodyWeavers.xsd
 *.msp
 
 docs/.local/
+
+# Red Hat pull secret (never commit)
+pull-secret.txt
+pull-secret.json
+pull-secret*.txt
+
+# Local deployment parameter files that carry the pull secret
+whatif.parameters.json
+*.local.parameters.json
