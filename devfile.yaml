@@ -30,7 +30,7 @@ components:
       env:
         # Bump these to move the pinned tool versions.
         - name: BICEP_VERSION
-          value: v0.33.93
+          value: v0.46.1
         - name: PWSH_VERSION
           value: 7.4.6
         - name: TOOLS_HOME
@@ -48,7 +48,9 @@ commands:
         set -euo pipefail
         mkdir -p "$TOOLS_HOME/bin" "$HOME/.local/bin"
 
-        if [ ! -x "$TOOLS_HOME/bin/bicep" ]; then
+        # Reinstall when the pinned version moves, not just when Bicep is absent:
+        # the tools volume outlives a version bump.
+        if ! "$TOOLS_HOME/bin/bicep" --version 2>/dev/null | grep -qF "${BICEP_VERSION#v}"; then
           echo "==> Installing Bicep $BICEP_VERSION"
           curl -fsSL -o "$TOOLS_HOME/bin/bicep" \
             "https://github.com/Azure/bicep/releases/download/${BICEP_VERSION}/bicep-linux-x64"
