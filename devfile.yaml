@@ -1,0 +1,153 @@
+schemaVersion: 2.2.0
+metadata:
+  name: sail-with-aro
+  displayName: SAIL with ARO
+  description: Bicep/Azure CLI tooling for the ARO landing-zone IaC
+  language: Bicep
+  projectType: Azure
+  tags:
+    - Bicep
+    - Azure
+    - ARO
+    - PowerShell
+
+components:
+  - name: tools
+    volume:
+      size: 3Gi
+
+  - name: iac
+    container:
+      image: quay.io/devfile/universal-developer-image:ubi9-latest
+      memoryRequest: 1Gi
+      memoryLimit: 6Gi
+      cpuRequest: 200m
+      cpuLimit: 2000m
+      mountSources: true
+      volumeMounts:
+        - name: tools
+          path: /home/user/.tools
+      env:
+        # Bump these to move the pinned tool versions.
+        - name: BICEP_VERSION
+          value: v0.33.93
+        - name: PWSH_VERSION
+          value: 7.4.6
+        - name: TOOLS_HOME
+          value: /home/user/.tools
+
+commands:
+  # Installs Bicep, Azure CLI and PowerShell into the persistent `tools` volume.
+  # Idempotent: re-running only installs what is missing.
+  - id: install-tooling
+    exec:
+      component: iac
+      workingDir: ${PROJECT_SOURCE}
+      label: Install Bicep, Azure CLI and PowerShell
+      commandLine: |
+        set -euo pipefail
+        mkdir -p "$TOOLS_HOME/bin" "$HOME/.local/bin"
+
+        if [ ! -x "$TOOLS_HOME/bin/bicep" ]; then
+          echo "==> Installing Bicep $BICEP_VERSION"
+          curl -fsSL -o "$TOOLS_HOME/bin/bicep" \
+            "https://github.com/Azure/bicep/releases/download/${BICEP_VERSION}/bicep-linux-x64"
+          chmod +x "$TOOLS_HOME/bin/bicep"
+        fi
+
+        if [ ! -x "$TOOLS_HOME/azure-cli/bin/az" ]; then
+          echo "==> Installing Azure CLI"
+          python3 -m venv "$TOOLS_HOME/azure-cli"
+          "$TOOLS_HOME/azure-cli/bin/python" -m pip install --quiet --upgrade pip
+          "$TOOLS_HOME/azure-cli/bin/python" -m pip install --quiet azure-cli
+        fi
+
+        if [ ! -x "$TOOLS_HOME/pwsh/pwsh" ]; then
+          echo "==> Installing PowerShell $PWSH_VERSION"
+          mkdir -p "$TOOLS_HOME/pwsh"
+          curl -fsSL \
+            "https://github.com/PowerShell/PowerShell/releases/download/v${PWSH_VERSION}/powershell-${PWSH_VERSION}-linux-x64.tar.gz" \
+            | tar -xz -C "$TOOLS_HOME/pwsh"
+          chmod +x "$TOOLS_HOME/pwsh/pwsh"
+        fi
+
+        # $HOME/.local/bin is already on PATH in the universal developer image,
+        # but $HOME is not always persisted, so relink on every start.
+        ln -sf "$TOOLS_HOME/bin/bicep"        "$HOME/.local/bin/bicep"
+        ln -sf "$TOOLS_HOME/azure-cli/bin/az" "$HOME/.local/bin/az"
+        ln -sf "$TOOLS_HOME/pwsh/pwsh"        "$HOME/.local/bin/pwsh"
+
+        # Use the Bicep binary above instead of the copy `az bicep` downloads.
+        az config set bicep.use_binary_from_path=true --only-show-errors
+
+        echo "==> Ready:"
+        bicep --version && az version --output tsv --query '"azure-cli"' && pwsh --version
+
+  # Compiles every template. Compilation surfaces both errors and linter
+  # warnings, which is as far as validation can go without an Azure login.
+  - id: bicep-build
+    exec:
+      component: iac
+      workingDir: ${PROJECT_SOURCE}
+      label: Build all Bicep templates
+      group:
+        kind: build
+        isDefault: true
+      commandLine: |
+        set -euo pipefail
+        export PATH="$TOOLS_HOME/bin:$PATH"
+        rc=0
+        for f in $(find infra -name '*.bicep' | sort); do
+          echo "==> $f"
+          bicep build "$f" --stdout > /dev/null || rc=1
+        done
+        exit $rc
+
+  - id: bicep-lint
+    exec:
+      component: iac
+      workingDir: ${PROJECT_SOURCE}
+      label: Lint all Bicep templates
+      commandLine: |
+        set -euo pipefail
+        export PATH="$TOOLS_HOME/bin:$PATH"
+        rc=0
+        for f in $(find infra -name '*.bicep' | sort); do
+          echo "==> $f"
+          bicep lint "$f" || rc=1
+        done
+        exit $rc
+
+  - id: az-login
+    exec:
+      component: iac
+      workingDir: ${PROJECT_SOURCE}
+      label: Log in to Azure (device code)
+      commandLine: |
+        export PATH="$TOOLS_HOME/azure-cli/bin:$PATH"
+        az login --use-device-code
+
+  # Requires az-login. Validates the subscription-scope template against ARM
+  # without creating anything; needs ARO_PULL_SECRET to be set.
+  - id: aro-whatif
+    exec:
+      component: iac
+      workingDir: ${PROJECT_SOURCE}/infra
+      label: What-if the ARO deployment (requires az login)
+      commandLine: |
+        set -euo pipefail
+        export PATH="$TOOLS_HOME/azure-cli/bin:$TOOLS_HOME/bin:$PATH"
+        params=${WHATIF_PARAMS:-whatif.parameters.json}
+        if [ ! -f "$params" ]; then
+          echo "Create $params first (aro.bicep parameters, including pullSecret)." >&2
+          exit 1
+        fi
+        location=$(python3 -c "import json;print(json.load(open('${CONFIG_FILE:-config.json}'))['location'])")
+        az deployment sub what-if \
+          --location "$location" \
+          --template-file aro.bicep \
+          --parameters "@$params"
+
+events:
+  postStart:
+    - install-tooling

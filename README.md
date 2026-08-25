@@ -50,6 +50,34 @@ private-endpoint subnet, and reusable Key Vault / container registry / Log
 Analytics / storage modules) along with a PowerShell deployment script. See
 [infra/README.md](infra/README.md) and [infra/DEPLOYMENT.md](infra/DEPLOYMENT.md).
 
+## Development environment
+
+[`devfile.yaml`](devfile.yaml) defines an OpenShift Dev Spaces workspace with the
+tooling needed to work on the templates: the Bicep CLI, Azure CLI, and
+PowerShell 7. The tools install into a persistent volume on workspace start
+(the `install-tooling` command runs automatically as a `postStart` event).
+
+### Running the devfile commands
+
+The devfile commands are exposed as tasks in the Dev Spaces editor:
+
+1. Press `Ctrl+Shift+P` (`Cmd+Shift+P` on macOS) to open the command palette.
+2. Run **Tasks: Run Task**.
+3. Choose the **devfile** category.
+4. Select the task you want to run.
+
+The task output opens in a terminal panel in the editor.
+
+Available tasks:
+
+| Task | What it does |
+| --- | --- |
+| Install Bicep, Azure CLI and PowerShell | Installs the pinned tool versions into the persistent volume. Idempotent, and already run on workspace start. |
+| Build all Bicep templates | Compiles every template under `infra/`; reports compile errors and linter warnings. |
+| Lint all Bicep templates | Runs the Bicep linter only. |
+| Log in to Azure (device code) | `az login --use-device-code` for the Azure CLI in the workspace. |
+| What-if the ARO deployment (requires az login) | Runs a subscription-scope what-if against `aro.bicep` without creating anything. Needs `infra/whatif.parameters.json` (including the pull secret). |
+
 ## Documentation
 
 * [`docs/`](docs) — Cohere North deployment reference material used to plan the
