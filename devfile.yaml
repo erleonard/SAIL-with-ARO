@@ -33,6 +33,8 @@ components:
           value: v0.46.1
         - name: PWSH_VERSION
           value: 7.4.6
+        - name: OPENCODE_VERSION
+          value: v1.18.7
         - name: TOOLS_HOME
           value: /home/user/.tools
 
@@ -73,17 +75,32 @@ commands:
           chmod +x "$TOOLS_HOME/pwsh/pwsh"
         fi
 
+        if ! "$TOOLS_HOME/bin/opencode" --version 2>/dev/null | grep -qF "${OPENCODE_VERSION#v}"; then
+          echo "==> Installing OpenCode $OPENCODE_VERSION"
+          mkdir -p "$TOOLS_HOME/opencode-tmp"
+          curl -fsSL \
+            "https://github.com/anomalyco/opencode/releases/download/${OPENCODE_VERSION}/opencode-linux-x64.tar.gz" \
+            | tar -xz -C "$TOOLS_HOME/opencode-tmp"
+          mv "$TOOLS_HOME/opencode-tmp/opencode" "$TOOLS_HOME/bin/opencode"
+          rm -rf "$TOOLS_HOME/opencode-tmp"
+          chmod +x "$TOOLS_HOME/bin/opencode"
+        fi
+
         # $HOME/.local/bin is already on PATH in the universal developer image,
         # but $HOME is not always persisted, so relink on every start.
         ln -sf "$TOOLS_HOME/bin/bicep"        "$HOME/.local/bin/bicep"
         ln -sf "$TOOLS_HOME/azure-cli/bin/az" "$HOME/.local/bin/az"
         ln -sf "$TOOLS_HOME/pwsh/pwsh"        "$HOME/.local/bin/pwsh"
+        ln -sf "$TOOLS_HOME/bin/opencode"     "$HOME/.local/bin/opencode"
 
         # Use the Bicep binary above instead of the copy `az bicep` downloads.
         az config set bicep.use_binary_from_path=true --only-show-errors
 
+        # Copy opencode config.
+        mkdir -p /home/user/.config/opencode && cp /data/opencode/*.* /home/user/.config/opencode/
+
         echo "==> Ready:"
-        bicep --version && az version --output tsv --query '"azure-cli"' && pwsh --version
+        bicep --version && opencode --version && az version --output tsv --query '"azure-cli"' && pwsh --version
 
   # Compiles every template. Compilation surfaces both errors and linter
   # warnings, which is as far as validation can go without an Azure login.
