@@ -31,3 +31,13 @@ openshift-gitops-repo-server-7fb8b7f78-vxsz2                 1/1     Running   0
 openshift-gitops-server-7bf4f84fd8-pp55x                     1/1     Running   0          3m57s
 ```
 
+## Per-cluster Modifications
+
+Certain aspects of this repository require customer or cluster specific configuration.  Before deploying these manifests to your cluster, please review the following files and update accordingly:
+
+### External Secrets
+
+Files to modify:
+  * `gitops/cluster-services/external-secrets/instance/clustersecretstore.yaml`
+  * `gitops/cluster-services/external-secrets/instance/externalsecrets-sa.yaml`
+
