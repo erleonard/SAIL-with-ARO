@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: cluster-services
+  namespace: openshift-gitops
+spec:
+  description: Project for cluster services components
+  sourceRepos:
+  - '*'
+  destinations:
+  - namespace: '*'
+    server: '*'
+  clusterResourceWhitelist: []
+  namespaceResourceWhitelist:
+  - group: '*'
+    kind: '*'
+  roles:
+  - name: admin
+    description: Admins have all permissions
+    policies:
+    - p, proj:cluster-services:admin, applications, *, cluster-services/* allow
+    groups:
+    - argocd-admins

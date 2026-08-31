@@ -2,6 +2,5 @@ namespace: external-secrets
 
 resources:
   - namespace.yaml
-  - externalsecrets-sa.yaml
   - externalsecrets-config.yaml
   - clustersecretstore.yaml

@@ -16,6 +16,34 @@ The OpenShift GitOps Operator needs to be installed first.  This might end up be
 oc apply -k bootstrap/openshift-gitops
 ```
 
+### GitOps Bootstrap Process
+
+Once OpenShift GitOps is installed, the GitOps bootstrap process can be initiated with a single command to deploy all cluster configuration and services. This process uses an "app of apps" pattern with hierarchical Argo CD applications:
+
+**Single Command Deployment:**
+```bash
+oc apply -k gitops/argocd
+```
+
+This single command creates:
+- **3 Argo CD Projects** (cluster-bootstrap, cluster-config, cluster-services)
+- **Root Application** (cluster-bootstrap) that manages the entire bootstrap process
+
+The bootstrap process then automatically creates:
+- **Intermediate Applications** (cluster-config, cluster-services)
+- **Individual Component Applications** (banners, external-secrets-operator, external-secrets-instance)
+
+**Environment-Specific Deployment:**
+```bash
+# For non-production clusters
+./gitops/deploy/deploy-non-prod.sh
+
+# For production clusters (with additional safety checks)
+./gitops/deploy/deploy-prod.sh
+```
+
+For detailed information about the bootstrap process, see [argocd/README.md](argocd/README.md).
+
 This will take a few moments to install the initial instance of OpenShift GitOps (Argo CD).  You'll know it's ready when you see the following pods in your cluster:
 
 ```
