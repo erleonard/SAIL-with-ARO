@@ -35,6 +35,8 @@ components:
           value: 7.4.6
         - name: OPENCODE_VERSION
           value: v1.18.7
+        - name: GH_VERSION
+          value: 2.67.0
         - name: TOOLS_HOME
           value: /home/user/.tools
 
@@ -86,12 +88,24 @@ commands:
           chmod +x "$TOOLS_HOME/bin/opencode"
         fi
 
+        if ! "$TOOLS_HOME/bin/gh" --version 2>/dev/null | grep -qF "${GH_VERSION}"; then
+          echo "==> Installing GitHub CLI $GH_VERSION"
+          mkdir -p "$TOOLS_HOME/gh-tmp"
+          curl -fsSL \
+            "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_amd64.tar.gz" \
+            | tar -xz -C "$TOOLS_HOME/gh-tmp"
+          mv "$TOOLS_HOME/gh-tmp/gh_${GH_VERSION}_linux_amd64/bin/gh" "$TOOLS_HOME/bin/gh"
+          rm -rf "$TOOLS_HOME/gh-tmp"
+          chmod +x "$TOOLS_HOME/bin/gh"
+        fi
+
         # $HOME/.local/bin is already on PATH in the universal developer image,
         # but $HOME is not always persisted, so relink on every start.
         ln -sf "$TOOLS_HOME/bin/bicep"        "$HOME/.local/bin/bicep"
         ln -sf "$TOOLS_HOME/azure-cli/bin/az" "$HOME/.local/bin/az"
         ln -sf "$TOOLS_HOME/pwsh/pwsh"        "$HOME/.local/bin/pwsh"
         ln -sf "$TOOLS_HOME/bin/opencode"     "$HOME/.local/bin/opencode"
+        ln -sf "$TOOLS_HOME/bin/gh"           "$HOME/.local/bin/gh"
 
         # Use the Bicep binary above instead of the copy `az bicep` downloads.
         az config set bicep.use_binary_from_path=true --only-show-errors
@@ -100,7 +114,7 @@ commands:
         mkdir -p /home/user/.config/opencode && cp /data/opencode/*.* /home/user/.config/opencode/
 
         echo "==> Ready:"
-        bicep --version && opencode --version && az version --output tsv --query '"azure-cli"' && pwsh --version
+        bicep --version && opencode --version && gh --version && az version --output tsv --query '"azure-cli"' && pwsh --version
 
   # Compiles every template. Compilation surfaces both errors and linter
   # warnings, which is as far as validation can go without an Azure login.
