@@ -5,21 +5,11 @@ metadata:
   namespace: openshift-gitops
 spec:
   description: Root project for cluster bootstrap process
-  sourceRepos:
-  - '*'
-  destinations:
-  - namespace: '*'
-    server: '*'
   clusterResourceWhitelist:
   - group: '*'
     kind: '*'
-  namespaceResourceWhitelist:
-  - group: '*'
-    kind: '*'
-  roles:
-  - name: admin
-    description: Admins have all permissions
-    policies:
-    - p, proj:cluster-bootstrap:admin, applications, *, cluster-bootstrap/* allow
-    groups:
-    - argocd-admins
+  destinations:
+  - namespace: '*'
+    server: '*'
+  sourceRepos:
+  - '*'

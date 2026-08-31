@@ -13,6 +13,7 @@ The basic layout is as follows:
 The OpenShift GitOps Operator needs to be installed first.  This might end up becoming part of the Bicep template, but for now we can deploy it with a single CLI command, assuming you are logged in using the OpenShift CLI (`oc`) as a `cluster-admin`.
 
 ```
+cd gitops
 oc apply -k bootstrap/openshift-gitops
 ```
 
@@ -22,7 +23,7 @@ Once OpenShift GitOps is installed, the GitOps bootstrap process can be initiate
 
 **Single Command Deployment:**
 ```bash
-oc apply -k gitops/argocd
+oc apply -k argocd/cluster-bootstrap/non-prod
 ```
 
 This single command creates:
