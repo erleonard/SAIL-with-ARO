@@ -1,0 +1,6 @@
+namespace: openshift-gitops
+
+resources:
+  - ../external-secrets/operator/overlays/prod
+  # Instance commented out until we have a KV to work with.
+  #- ../external-secrets/instance/overlays/prod

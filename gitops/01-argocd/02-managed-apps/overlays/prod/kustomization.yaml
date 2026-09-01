@@ -12,7 +12,7 @@ patches:
       namespace: openshift-gitops
     spec:
       source:
-        path: gitops/argocd/applications/cluster-config/00-prod
+        path: gitops/01-argocd/03-cluster-config/00-prod
 - patch: |-
     apiVersion: argoproj.io/v1alpha1
     kind: Application
@@ -21,4 +21,4 @@ patches:
       namespace: openshift-gitops
     spec:
       source:
-        path: gitops/argocd/applications/cluster-services/prod
+        path: gitops/01-argocd/04-cluster-services/prod

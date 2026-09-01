@@ -1,5 +1,0 @@
-namespace: openshift-gitops
-
-resources:
-  - ../external-secrets/operator/overlays/prod
-  - ../external-secrets/instance/overlays/prod
