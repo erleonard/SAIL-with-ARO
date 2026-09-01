@@ -14,36 +14,8 @@ The OpenShift GitOps Operator needs to be installed first.  This might end up be
 
 ```
 cd gitops
-oc apply -k bootstrap/openshift-gitops
+oc apply -k 00-init/openshift-gitops
 ```
-
-### GitOps Bootstrap Process
-
-Once OpenShift GitOps is installed, the GitOps bootstrap process can be initiated with a single command to deploy all cluster configuration and services. This process uses an "app of apps" pattern with hierarchical Argo CD applications:
-
-**Single Command Deployment:**
-```bash
-oc apply -k argocd/cluster-bootstrap/non-prod
-```
-
-This single command creates:
-- **3 Argo CD Projects** (cluster-bootstrap, cluster-config, cluster-services)
-- **Root Application** (cluster-bootstrap) that manages the entire bootstrap process
-
-The bootstrap process then automatically creates:
-- **Intermediate Applications** (cluster-config, cluster-services)
-- **Individual Component Applications** (banners, external-secrets-operator, external-secrets-instance)
-
-**Environment-Specific Deployment:**
-```bash
-# For non-production clusters
-./gitops/deploy/deploy-non-prod.sh
-
-# For production clusters (with additional safety checks)
-./gitops/deploy/deploy-prod.sh
-```
-
-For detailed information about the bootstrap process, see [argocd/README.md](argocd/README.md).
 
 This will take a few moments to install the initial instance of OpenShift GitOps (Argo CD).  You'll know it's ready when you see the following pods in your cluster:
 
@@ -60,6 +32,23 @@ openshift-gitops-repo-server-7fb8b7f78-vxsz2                 1/1     Running   0
 openshift-gitops-server-7bf4f84fd8-pp55x                     1/1     Running   0          3m57s
 ```
 
+### GitOps Bootstrap Process
+
+Once OpenShift GitOps is installed, the GitOps bootstrap process can be initiated with a single command to deploy all cluster configuration and services. This process uses an "app of apps" pattern with hierarchical Argo CD applications:
+
+**Single Command Deployment:**
+```bash
+oc apply -k 01-argocd/00-cluster-bootstrap/non-prod
+```
+
+This single command creates:
+- **3 Argo CD Projects** (cluster-bootstrap, cluster-config, cluster-services)
+- **Root Application** (cluster-bootstrap) that manages the entire bootstrap process
+
+The bootstrap process then automatically creates:
+- **Intermediate Applications** (cluster-config, cluster-services)
+- **Individual Component Applications** (banners, external-secrets-operator, Nvidia GPU drivers, etc...)
+
 ## Per-cluster Modifications
 
 Certain aspects of this repository require customer or cluster specific configuration.  Before deploying these manifests to your cluster, please review the following files and update accordingly:
@@ -67,6 +56,6 @@ Certain aspects of this repository require customer or cluster specific configur
 ### External Secrets
 
 Files to modify:
-  * `gitops/cluster-services/external-secrets/instance/clustersecretstore.yaml`
-  * `gitops/cluster-services/external-secrets/instance/externalsecrets-sa.yaml`
+  * `gitops/04-cluster-services/external-secrets/instance/overlays/*/clustersecretstore.yaml`
+  * `gitops/cluster-services/external-secrets/instance/overlays/*/externalsecrets-sa.yaml`
 
