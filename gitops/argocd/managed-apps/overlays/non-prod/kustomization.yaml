@@ -9,14 +9,16 @@ patches:
     kind: Application
     metadata:
       name: cluster-config
+      namespace: openshift-gitops
     spec:
       source:
-        path: gitops/argocd/applications/cluster-config/00-non-prod
+        path: gitops/argocd/cluster-config/00-non-prod
 - patch: |-
     apiVersion: argoproj.io/v1alpha1
     kind: Application
     metadata:
       name: cluster-services
+      namespace: openshift-gitops
     spec:
       source:
-        path: gitops/argocd/applications/cluster-services/non-prod
+        path: gitops/argocd/cluster-services/00-non-prod

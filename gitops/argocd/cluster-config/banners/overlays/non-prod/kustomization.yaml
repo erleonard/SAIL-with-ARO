@@ -9,6 +9,7 @@ patches:
     kind: Application
     metadata:
       name: banners
+      namespace: openshift-gitops
     spec:
       source:
         path: gitops/cluster-config/banners/overlays/non-prod

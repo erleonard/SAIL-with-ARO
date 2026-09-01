@@ -9,6 +9,7 @@ patches:
     kind: Application
     metadata:
       name: cluster-config
+      namespace: openshift-gitops
     spec:
       source:
         path: gitops/argocd/applications/cluster-config/00-prod
@@ -17,6 +18,7 @@ patches:
     kind: Application
     metadata:
       name: cluster-services
+      namespace: openshift-gitops
     spec:
       source:
         path: gitops/argocd/applications/cluster-services/prod

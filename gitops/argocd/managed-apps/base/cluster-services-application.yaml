@@ -9,9 +9,6 @@ spec:
     repoURL: https://github.com/erleonard/SAIL-with-ARO.git
     targetRevision: feature/gitops-bootstrap-process
     path: set/in/overlay
-    kustomize:
-      commonLabels:
-        app.kubernetes.io/part-of: cluster-services
   destination:
     server: https://kubernetes.default.svc
     namespace: openshift-gitops
