@@ -21,4 +21,4 @@ param clusterName = 'aro-sail'
 param domain = 'sail'
 param aroResourceProviderObjectId = '22508d40-9922-4d07-ae8b-c83ca4d35311'
 param pullSecret = readEnvironmentVariable('ARO_PULL_SECRET', '')
-param openShiftVersion = ''
+param openShiftVersion = '4.21.22'
