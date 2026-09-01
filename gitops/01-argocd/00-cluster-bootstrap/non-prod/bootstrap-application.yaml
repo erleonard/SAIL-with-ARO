@@ -7,7 +7,7 @@ spec:
   project: cluster-bootstrap
   source:
     repoURL: https://github.com/erleonard/SAIL-with-ARO.git
-    targetRevision: feature/gitops-bootstrap-process
+    targetRevision: main
     path: gitops/01-argocd/02-managed-apps/overlays/non-prod
   destination:
     server: https://kubernetes.default.svc
