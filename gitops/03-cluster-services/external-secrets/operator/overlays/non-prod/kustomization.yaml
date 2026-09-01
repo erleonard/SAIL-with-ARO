@@ -1,4 +1,4 @@
-namespace: openshift-gitops
+namespace: external-secrets-operator
 
 resources:
   - ../../base
