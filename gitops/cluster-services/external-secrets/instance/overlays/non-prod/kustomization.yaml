@@ -13,4 +13,5 @@ patches:
     spec:
       provider:
         azurekv:
-          vaultUrl: "https://<your-non-prod-keyvault-name>.vault.azure.net"
+          # Replace with your keyvault name.
+          vaultUrl: "https://your-non-prod-vault-name.vault.azure.net"
