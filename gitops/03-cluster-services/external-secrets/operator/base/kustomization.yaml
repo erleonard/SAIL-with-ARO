@@ -2,4 +2,5 @@ namespace: external-secrets-operator
 
 resources:
   - namespace.yaml
+  - operatorgroup.yaml
   - subscription.yaml
