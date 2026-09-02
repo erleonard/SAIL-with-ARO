@@ -4,5 +4,6 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "-30"
   labels:
+    argocd.argoproj.io/managed-by: openshift-gitops
     openshift.io/cluster-monitoring: "true"
   name: openshift-nfd
