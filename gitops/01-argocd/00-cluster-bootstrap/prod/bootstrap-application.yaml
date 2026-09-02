@@ -1,14 +1,14 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: cluster-config
+  name: cluster-bootstrap
   namespace: openshift-gitops
 spec:
   project: cluster-bootstrap
   source:
     repoURL: https://github.com/erleonard/SAIL-with-ARO.git
     targetRevision: main
-    path: gitops/01-argocd/02-managed-apps/overlays/prod
+    path: gitops/01-argocd/02-applicationsets/overlays/prod
   destination:
     server: https://kubernetes.default.svc
     namespace: openshift-gitops

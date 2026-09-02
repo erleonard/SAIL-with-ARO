@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# The External Secrets operator and its instance are one service bundle so
+# that resource-level sync waves can sequence them inside a single generated
+# Application. The instance is deliberately absent until its Azure Key Vault
+# and workload identity values are available; adding
+# ../../instance/overlays/non-prod here is what enables it.
+resources:
+  - ../../operator/base

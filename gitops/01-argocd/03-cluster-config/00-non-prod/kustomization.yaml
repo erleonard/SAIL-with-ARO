@@ -1,4 +1,0 @@
-namespace: openshift-gitops
-
-resources:
-  - ../banners/overlays/non-prod
