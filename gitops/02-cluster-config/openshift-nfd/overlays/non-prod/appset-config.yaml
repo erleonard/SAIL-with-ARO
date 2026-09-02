@@ -1,0 +1,4 @@
+# Discovered by the cluster-config ApplicationSet. This directory name is the generated
+# Application's name and this directory is its source path; the file is not a
+# Kustomize resource. Set "name" here only to override the directory name.
+destinationNamespace: openshift-nfd
