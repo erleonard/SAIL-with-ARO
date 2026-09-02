@@ -110,8 +110,11 @@ commands:
         # Use the Bicep binary above instead of the copy `az bicep` downloads.
         az config set bicep.use_binary_from_path=true --only-show-errors
 
-        # Copy opencode config.
-        mkdir -p /home/user/.config/opencode && cp /data/opencode/*.* /home/user/.config/opencode/
+        # Copy opencode config, if this environment provides one.
+        if [ -d /data/opencode ]; then
+          mkdir -p "$HOME/.config/opencode"
+          cp /data/opencode/*.* "$HOME/.config/opencode/" 2>/dev/null || true
+        fi
 
         echo "==> Ready:"
         bicep --version && opencode --version && gh --version && az version --output tsv --query '"azure-cli"' && pwsh --version
