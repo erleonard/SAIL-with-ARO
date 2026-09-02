@@ -56,18 +56,34 @@ select the environment once per category rather than once per component.
 ## The `appset-config.yaml` descriptor
 
 A component environment overlay opts into deployment by containing a file named
-`appset-config.yaml`:
+`appset-config.yaml`. In the normal case it has a single field:
 
 ```yaml
-name: banners
+# gitops/02-cluster-config/banners/overlays/prod/appset-config.yaml
 destinationNamespace: openshift-gitops
 ```
 
 Kustomize ignores the file because it is not listed as a resource, and it never
 appears in rendered payload output. The ApplicationSet Git files generator
-parses it and supplies the containing directory as `{{.path.path}}`, which
-becomes the generated Application's source path. Component paths are therefore
-never typed twice and cannot drift from the repository tree.
+parses it and supplies the descriptor's own location as template parameters:
+
+| Value | Derived from | Example |
+| --- | --- | --- |
+| Application source path | `{{.path.path}}` | `gitops/02-cluster-config/banners/overlays/prod` |
+| Application name | `{{index .path.segments 2}}` | `banners` |
+
+Because the discovery glob pins every descriptor to
+`gitops/<category>/<component>/overlays/<environment>/`, path segment 2 is
+always the component directory. Neither the path nor the name is typed a second
+time, so neither can drift from the repository tree.
+
+To name an Application something other than its directory, set `name`
+explicitly and it wins:
+
+```yaml
+name: console-banners
+destinationNamespace: openshift-gitops
+```
 
 The descriptor deliberately carries no repository URL, target revision,
 project, source path, sync policy, or destination server. Those are controlled
@@ -91,7 +107,7 @@ Creating a directory does not deploy it. Only a descriptor does.
 ```text
 1. Create the component's base and/or environment overlay.
 2. Ensure the environment overlay builds successfully.
-3. Add appset-config.yaml with name and destinationNamespace.
+3. Add appset-config.yaml with destinationNamespace.
 4. Commit the overlay and descriptor.
 ```
 
@@ -99,7 +115,8 @@ The discovery globs use a single-level `*`, so a component's entrypoint overlay
 must live at `gitops/02-cluster-config/<component>/overlays/<environment>/` or
 `gitops/03-cluster-services/<service>/overlays/<environment>/`. Nested
 directories below that are internal to the component and are not discovered
-independently.
+independently. That fixed depth is also what makes the derived Application name
+reliable.
 
 Removing a descriptor removes the generated Application from desired state.
 Treat descriptor removal as an intentional undeployment: depending on

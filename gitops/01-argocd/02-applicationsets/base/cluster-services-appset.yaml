@@ -21,7 +21,11 @@ spec:
 
   template:
     metadata:
-      name: "{{.name}}"
+      # The component directory name is the Application name. The discovery
+      # glob fixes the descriptor at gitops/<category>/<component>/overlays/
+      # <environment>/, so the component is always path segment 2. A descriptor
+      # may still set "name" explicitly to override this.
+      name: '{{ if hasKey . "name" }}{{ .name }}{{ else }}{{ index .path.segments 2 }}{{ end }}'
       labels:
         environment: SET_IN_OVERLAY
         gitops-category: cluster-services
