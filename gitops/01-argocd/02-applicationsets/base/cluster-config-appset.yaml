@@ -15,7 +15,7 @@ spec:
     # the descriptors for its own environment.
     - git:
         repoURL: https://github.com/erleonard/SAIL-with-ARO.git
-        revision: main
+        revision: feature/gitops-bootstrap-process
         files:
           - path: SET_IN_OVERLAY
 
@@ -33,7 +33,7 @@ spec:
       project: cluster-config
       source:
         repoURL: https://github.com/erleonard/SAIL-with-ARO.git
-        targetRevision: main
+        targetRevision: feature/gitops-bootstrap-process
         # The directory holding appset-config.yaml is the payload overlay, so
         # the path is never typed a second time.
         path: "{{.path.path}}"
