@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: https://github.com/erleonard/SAIL-with-ARO.git
     targetRevision: main
-    path: gitops/01-argocd/02-managed-apps/overlays/prod
+    path: gitops/01-argocd/02-applicationsets/overlays/prod
   destination:
     server: https://kubernetes.default.svc
     namespace: openshift-gitops

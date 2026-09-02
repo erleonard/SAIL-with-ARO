@@ -1,4 +1,0 @@
-namespace: openshift-gitops
-
-resources:
-  - external-secrets-instance-application.yaml

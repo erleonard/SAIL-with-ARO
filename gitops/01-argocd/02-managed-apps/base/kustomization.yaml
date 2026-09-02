@@ -1,5 +1,0 @@
-namespace: openshift-gitops
-
-resources:
-  - cluster-config-application.yaml
-  - cluster-services-application.yaml
