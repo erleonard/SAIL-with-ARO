@@ -1,0 +1,4 @@
+# Discovered by the cluster-config ApplicationSet. This directory is the
+# generated Application's source path; it is not a Kustomize resource.
+name: banners
+destinationNamespace: openshift-gitops

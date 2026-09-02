@@ -1,0 +1,4 @@
+# Discovered by the cluster-services ApplicationSet. This directory is the
+# generated Application's source path; it is not a Kustomize resource.
+name: external-secrets
+destinationNamespace: external-secrets-operator
