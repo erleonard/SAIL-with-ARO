@@ -1,0 +1,42 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cluster-config
+  namespace: openshift-gitops
+spec:
+  goTemplate: true
+  # Fail generation loudly instead of rendering an Application with an empty
+  # name or namespace when a descriptor is missing a field.
+  goTemplateOptions:
+    - missingkey=error
+
+  generators:
+    # The environment overlay replaces this path so a cluster only discovers
+    # the descriptors for its own environment.
+    - git:
+        repoURL: https://github.com/erleonard/SAIL-with-ARO.git
+        revision: main
+        files:
+          - path: SET_IN_OVERLAY
+
+  template:
+    metadata:
+      name: "{{.name}}"
+      labels:
+        environment: SET_IN_OVERLAY
+        gitops-category: cluster-config
+    spec:
+      project: cluster-config
+      source:
+        repoURL: https://github.com/erleonard/SAIL-with-ARO.git
+        targetRevision: main
+        # The directory holding appset-config.yaml is the payload overlay, so
+        # the path is never typed a second time.
+        path: "{{.path.path}}"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{.destinationNamespace}}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
