@@ -1,0 +1,7 @@
+namespace: openshift-gitops
+
+resources:
+  # Create all mandatory Argo CD Projects.
+  - ../../01-projects
+  # Create Boostrap Application.
+  - bootstrap-application.yaml

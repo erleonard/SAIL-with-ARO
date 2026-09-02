@@ -1,0 +1,6 @@
+namespace: external-secrets
+
+resources:
+  - namespace.yaml
+  - externalsecrets-config.yaml
+  - clustersecretstore.yaml

@@ -1,0 +1,6 @@
+namespace: openshift-gitops
+
+resources:
+  - cluster-bootstrap-project.yaml
+  - cluster-config-project.yaml
+  - cluster-services-project.yaml

@@ -1,5 +1,0 @@
-namespace: external-secrets-operator
-
-resources:
-  - namespace.yaml
-  - subscription.yaml

@@ -1,0 +1,17 @@
+namespace: openshift-gitops
+
+resources:
+  - ../../base
+  - externalsecrets-sa.yaml
+
+patches:
+- patch: |-
+    apiVersion: external-secrets.io/v1
+    kind: ClusterSecretStore
+    metadata:
+      name: azurekv
+    spec:
+      provider:
+        azurekv:
+          # Replace with your keyvault name.
+          vaultUrl: "https://your-prod-vault-name.vault.azure.net"
