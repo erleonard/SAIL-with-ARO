@@ -1,0 +1,32 @@
+apiVersion: logging.coreos.com/v1
+kind: ClusterLogForwarder
+metadata:
+  name: instance
+  namespace: openshift-logging
+spec:
+  outputs:
+    - name: azure-monitor
+      type: azureMonitor
+      azureMonitor:
+        # REPLACE_WITH_CUSTOMER_ID - Azure Log Analytics workspace customer ID
+        customerId: "REPLACE_WITH_CUSTOMER_ID"
+        # REPLACE_WITH_SHARED_KEY - Azure Log Analytics workspace shared key
+        sharedKey: "REPLACE_WITH_SHARED_KEY"
+        # REPLACE_WITH_REGION - Azure region for data sovereignty (e.g., canada-central)
+        region: "REPLACE_WITH_REGION"
+  pipelines:
+    - name: application-logs
+      inputRefs:
+        - application
+      outputRefs:
+        - azure-monitor
+    - name: infrastructure-logs
+      inputRefs:
+        - infrastructure
+      outputRefs:
+        - azure-monitor
+    - name: audit-logs
+      inputRefs:
+        - audit
+      outputRefs:
+        - azure-monitor
