@@ -7,7 +7,7 @@ spec:
   project: cluster-bootstrap
   source:
     repoURL: https://github.com/erleonard/SAIL-with-ARO.git
-    targetRevision: main
+    targetRevision: feature/27-deploy-openshift-logging-operator-and-configure-clusterlogfowarder
     path: gitops/01-argocd/02-applicationsets/overlays/prod
   destination:
     server: https://kubernetes.default.svc
