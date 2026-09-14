@@ -427,3 +427,6 @@ pull-secret*.txt
 # Local deployment parameter files that carry the pull secret
 whatif.parameters.json
 *.local.parameters.json
+
+# Scratch dir for temp files.
+scratch
