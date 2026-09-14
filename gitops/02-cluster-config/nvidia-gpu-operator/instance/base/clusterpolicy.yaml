@@ -1,0 +1,58 @@
+apiVersion: nvidia.com/v1
+kind: ClusterPolicy
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "200"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  name: gpu-cluster-policy
+spec:
+  operator:
+    initContainer: {}
+    runtimeClass: nvidia-container-runtime
+    taints: []
+    tolerations: []
+  dcgm:
+    enabled: true
+  dcgmExporter:
+    enabled: true
+  devicePlugin:
+    enabled: true
+    config: {}
+  driver:
+    enabled: true
+    repoConfig:
+      configMapName: ""
+      secretName: ""
+    kernelModuleConfig:
+      name: ""
+    licensingConfig:
+      configMapName: ""
+      nlsEnabled: true
+    virtualMachine:
+      enabled: false
+  fluentBit:
+    enabled: true
+    nodeSelector: {}
+    tolerations: []
+  gpuFeatureDiscovery:
+    enabled: true
+    nodeSelector: {}
+    tolerations: []
+  migManager:
+    enabled: true
+    nodeSelector: {}
+    tolerations: []
+  operator:
+    defaultRuntime: containerd
+    initContainer: {}
+    nodeSelector: {}
+    runtimeClass: nvidia-container-runtime
+    tolerations: []
+  sandboxWorkloads:
+    enabled: false
+    defaultWorkload: container
+  validator:
+    plugin:
+      env:
+      - name: WITH_MIG
+        value: "false"
