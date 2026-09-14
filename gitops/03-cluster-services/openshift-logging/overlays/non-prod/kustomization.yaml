@@ -3,4 +3,5 @@ kind: Kustomization
 
 resources:
   - ../../operator/base
-  - ../../instance/base
+  # Instance commented out until Azure Monitor is ready.
+  # - ../../instance/base

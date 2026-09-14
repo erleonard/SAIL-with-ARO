@@ -33,6 +33,12 @@ openshift-gitops-repo-server-7fb8b7f78-vxsz2                 1/1     Running   0
 openshift-gitops-server-7bf4f84fd8-pp55x                     1/1     Running   0          3m57s
 ```
 
+To login to the OpenShift GitOps Web UI, you can use the following admin password:
+
+```
+oc extract secret/openshift-gitops-cluster -n openshift-gitops --keys=admin.password --to=-
+```
+
 ### GitOps Bootstrap Process
 
 Once OpenShift GitOps is installed, a single command bootstraps all cluster
