@@ -4,20 +4,20 @@ kind: Kustomization
 resources:
   - ../../base
 
-patches:
-  - target:
-      kind: ClusterPolicy
-      name: gpu-cluster-policy
-    patch: |
-      - op: add
-        path: /spec/operator/nodeSelector
-        value:
-          node-role.kubernetes.io/gpu: ""
-      - op: add
-        path: /spec/gpuFeatureDiscovery/nodeSelector
-        value:
-          node-role.kubernetes.io/gpu: ""
-      - op: add
-        path: /spec/migManager/nodeSelector
-        value:
-          node-role.kubernetes.io/gpu: ""
+# patches:
+#   - target:
+#       kind: ClusterPolicy
+#       name: gpu-cluster-policy
+#     patch: |
+#       - op: add
+#         path: /spec/operator/nodeSelector
+#         value:
+#           node-role.kubernetes.io/gpu: ""
+#       - op: add
+#         path: /spec/gpuFeatureDiscovery/nodeSelector
+#         value:
+#           node-role.kubernetes.io/gpu: ""
+#       - op: add
+#         path: /spec/migManager/nodeSelector
+#         value:
+#           node-role.kubernetes.io/gpu: ""
