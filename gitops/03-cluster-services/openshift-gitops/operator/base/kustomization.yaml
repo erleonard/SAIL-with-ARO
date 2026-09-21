@@ -1,0 +1,6 @@
+namespace: openshift-gitops-operator
+
+resources:
+  - operator-namespace.yaml
+  - subscription.yaml
+  - operatorgroup.yaml
