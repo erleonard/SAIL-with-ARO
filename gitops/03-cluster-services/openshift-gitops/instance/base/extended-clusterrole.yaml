@@ -17,3 +17,17 @@ rules:
       - update
       - patch
       - delete
+  - apiGroups:
+      - tuned.openshift.io
+    resources:
+      - tuneds
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - update
+      - patch
+      - delete
+apiVersion: tuned.openshift.io/v1
+kind: Tuned
