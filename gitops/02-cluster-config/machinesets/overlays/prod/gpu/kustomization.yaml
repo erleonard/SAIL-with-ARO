@@ -1,0 +1,4 @@
+resources:
+  - machineset-gpu-az1.yaml
+  - machineest-gpu-az2.yaml
+  - machineset-gpu-az3.yaml
