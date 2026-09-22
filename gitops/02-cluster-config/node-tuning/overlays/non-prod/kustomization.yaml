@@ -1,2 +1,2 @@
 resources:
-  - ../../base/opensearch-tuning.yaml
+  - ../../base
