@@ -7,7 +7,6 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: cluster-admin
   name: openshift-gitops-extended-clusterrole
 subjects:
   - kind: ServiceAccount
