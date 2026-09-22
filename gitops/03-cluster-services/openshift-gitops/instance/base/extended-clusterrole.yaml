@@ -29,5 +29,3 @@ rules:
       - update
       - patch
       - delete
-apiVersion: tuned.openshift.io/v1
-kind: Tuned
