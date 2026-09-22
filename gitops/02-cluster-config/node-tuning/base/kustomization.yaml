@@ -1,0 +1,4 @@
+namespace: openshift-cluster-node-tuning-operator
+
+resources:
+  - opensearch-tuned.yaml
