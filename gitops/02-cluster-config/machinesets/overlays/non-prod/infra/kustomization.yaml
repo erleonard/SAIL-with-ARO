@@ -1,0 +1,4 @@
+resources:
+  - machineset-infra-az1.yaml
+  - machineest-infra-az2.yaml
+  - machineset-infra-az3.yaml

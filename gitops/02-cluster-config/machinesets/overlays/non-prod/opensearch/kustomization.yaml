@@ -1,0 +1,4 @@
+resources:
+  - machineset-opensearch-az1.yaml
+  - machineest-opensearch-az2.yaml
+  - machineset-opensearch-az3.yaml
